@@ -430,4 +430,117 @@ function doUpgrade() {
   opacity: 0;
   transform: scale(0.95);
 }
+
+/* ------------------------------------------------------------ */
+/*  RESPONSIVE: mobile (≤ 768px)                                */
+/*  Level cards move to the top as a swipeable horizontal       */
+/*  carousel (CSS scroll-snap), showing 2 cards per view.       */
+/* ------------------------------------------------------------ */
+@media (max-width: 768px) {
+  .forge-frame {
+    padding: 8px;
+  }
+  .header {
+    min-height: 48px;
+    margin-bottom: 8px;
+  }
+  .title-plank {
+    padding: 8px 44px 9px;
+    border-radius: 12px;
+  }
+  .title-text {
+    font-size: 15px;
+    letter-spacing: 1px;
+  }
+  .close-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+  }
+
+  /* Body becomes vertical: carousel on top, big forge image below */
+  .body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* Horizontal swipe carousel — 2 cards per view */
+  .levels {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px;
+    padding: 2px 2px 6px;
+    scrollbar-width: none;
+  }
+  .levels::-webkit-scrollbar {
+    display: none;
+  }
+  .level-card {
+    flex: 0 0 calc(50% - 4px);
+    min-width: 0;
+    flex-direction: column;
+    scroll-snap-align: start;
+    padding: 6px;
+    gap: 6px;
+  }
+  .level-label {
+    font-size: 13px;
+    text-align: center;
+    width: 100%;
+  }
+  .level-thumb {
+    width: 100%;
+    height: 64px;
+    flex: none;
+  }
+
+  /* Big forge display fills the rest of the screen */
+  .forge-display {
+    min-height: 0;
+    flex: 1;
+  }
+
+  /* Footer */
+  .footer {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .footer-level {
+    font-size: 13px;
+  }
+  .footer-bonus {
+    font-size: 11px;
+  }
+  .footer-bonus b {
+    font-size: 12px;
+    padding: 1px 5px;
+  }
+  .upgrade-btn {
+    min-width: 110px;
+    padding: 6px 14px 8px;
+  }
+  .upgrade-label {
+    font-size: 12px;
+  }
+  .upgrade-cost {
+    font-size: 13px;
+  }
+  .coin-mini {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+@media (max-width: 400px) {
+  .level-card {
+    flex: 0 0 calc(50% - 4px);
+  }
+  .level-thumb {
+    height: 56px;
+  }
+}
 </style>

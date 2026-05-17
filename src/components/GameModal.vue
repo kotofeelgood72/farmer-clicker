@@ -196,4 +196,49 @@ const emit = defineEmits<{ close: [] }>()
 .modal-leave-to .modal-frame {
   transform: scale(0.85);
 }
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .modal-overlay {
+    padding: 44px 10px calc(10px + env(safe-area-inset-bottom));
+  }
+  .modal-frame {
+    max-width: 100%;
+    padding: 12px;
+    border-radius: 18px;
+  }
+  .modal-header {
+    margin-top: -28px;
+    margin-bottom: 8px;
+    min-height: 48px;
+  }
+  .modal-title-plank {
+    padding: 8px 44px 9px;
+    border-radius: 12px;
+  }
+  .modal-title-text {
+    font-size: 15px;
+    letter-spacing: 1px;
+  }
+  .modal-close {
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+    border-width: 2px;
+  }
+  .modal-body {
+    padding: 10px;
+    border-radius: 12px;
+  }
+}
+@media (max-width: 400px) {
+  .modal-title-text {
+    font-size: 13px;
+  }
+  .modal-close {
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+  }
+}
 </style>

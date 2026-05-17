@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import GameModal from './GameModal.vue'
 import { useGameStore } from '@/stores/game'
+import { showRewarded } from '@/ads/ads'
 import iconCoin from '@/assets/coin.png'
 import iconStone from '@/assets/stone.png'
 import iconClover from '@/assets/clever.png'
@@ -8,10 +10,112 @@ import iconChest1 from '@/assets/sunduk-1.png'
 import iconChest2 from '@/assets/sunduk-2.png'
 import iconChest3 from '@/assets/sunduk-3.png'
 
-defineProps<{ open: boolean }>()
+const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
 const game = useGameStore()
+
+// Live clock for cooldown labels — only ticks while the modal is open.
+const nowTs = ref(Date.now())
+let tickTimer = 0
+watch(
+  () => props.open,
+  (v) => {
+    if (v) {
+      nowTs.value = Date.now()
+      tickTimer = window.setInterval(() => (nowTs.value = Date.now()), 1000)
+    } else if (tickTimer) {
+      clearInterval(tickTimer)
+      tickTimer = 0
+    }
+  },
+  { immediate: true },
+)
+onBeforeUnmount(() => {
+  if (tickTimer) clearInterval(tickTimer)
+})
+
+function leftMs(target: number): number {
+  return Math.max(0, target - nowTs.value)
+}
+function fmtMin(ms: number): string {
+  const s = Math.ceil(ms / 1000)
+  const m = Math.floor(s / 60)
+  const sec = s % 60
+  return `${m}:${sec.toString().padStart(2, '0')}`
+}
+
+interface FreeBooster {
+  id: 'gold' | 'speed' | 'luck'
+  title: string
+  desc: string
+  image: string
+  iconBg: string
+  cooldownMs: number
+  getNextAt: () => number
+  setNextAt: (v: number) => void
+  grant: () => void
+}
+const FREE_COOLDOWN = 5 * 60_000
+
+const FREE_BOOSTERS: FreeBooster[] = [
+  {
+    id: 'gold',
+    title: 'x2 Золото',
+    desc: 'на 5 минут',
+    image: iconCoin,
+    iconBg: 'linear-gradient(180deg, #ffe680, #c89030)',
+    cooldownMs: FREE_COOLDOWN,
+    getNextAt: () => game.adFreeBoosterGoldNextAt,
+    setNextAt: (v) => (game.adFreeBoosterGoldNextAt = v),
+    grant: () => {
+      game.goldX2Until = Math.max(Date.now(), game.goldX2Until) + 300_000
+    },
+  },
+  {
+    id: 'speed',
+    title: 'x2 Скорость',
+    desc: 'на 5 минут',
+    image: iconCoin,
+    iconBg: 'linear-gradient(180deg, #a8d8ff, #2e72c8)',
+    cooldownMs: FREE_COOLDOWN,
+    getNextAt: () => game.adFreeBoosterSpeedNextAt,
+    setNextAt: (v) => (game.adFreeBoosterSpeedNextAt = v),
+    grant: () => {
+      game.autoClickUntil = Math.max(Date.now(), game.autoClickUntil) + 300_000
+    },
+  },
+  {
+    id: 'luck',
+    title: 'x2 Удача',
+    desc: 'на 5 минут',
+    image: iconClover,
+    iconBg: 'linear-gradient(180deg, #b8f0a8, #2e8b3a)',
+    cooldownMs: FREE_COOLDOWN,
+    getNextAt: () => game.adFreeBoosterLuckNextAt,
+    setNextAt: (v) => (game.adFreeBoosterLuckNextAt = v),
+    grant: () => {
+      game.critX2Until = Math.max(Date.now(), game.critX2Until) + 300_000
+    },
+  },
+]
+
+function claimFreeBooster(b: FreeBooster) {
+  if (leftMs(b.getNextAt()) > 0) return
+  showRewarded(() => {
+    b.grant()
+    b.setNextAt(Date.now() + b.cooldownMs)
+  })
+}
+
+const freeDiamondsLeft = computed(() => leftMs(game.adDiamondsNextAt))
+function claimFreeDiamonds() {
+  if (freeDiamondsLeft.value > 0) return
+  showRewarded(() => {
+    game.diamonds += 5
+    game.adDiamondsNextAt = Date.now() + 10 * 60_000
+  })
+}
 
 interface Booster {
   id: string
@@ -103,6 +207,50 @@ function buyBundle(b: Bundle) {
 
 <template>
   <GameModal :open="open" title="Магазин" @close="emit('close')">
+    <!-- Free (rewarded ads) -->
+    <div class="section">
+      <div class="section-title">Бесплатно за рекламу</div>
+      <div class="grid-3">
+        <button
+          v-for="b in FREE_BOOSTERS"
+          :key="b.id"
+          class="card booster free"
+          :disabled="leftMs(b.getNextAt()) > 0"
+          @click="claimFreeBooster(b)"
+        >
+          <div class="card-icon" :style="{ background: b.iconBg }">
+            <img :src="b.image" alt="" class="card-img" />
+          </div>
+          <div class="card-title">{{ b.title }}</div>
+          <div class="card-desc">{{ b.desc }}</div>
+          <div v-if="leftMs(b.getNextAt()) > 0" class="card-price ad cooldown">
+            {{ fmtMin(leftMs(b.getNextAt())) }}
+          </div>
+          <div v-else class="card-price ad">
+            <span class="ad-icon">📺</span>
+            <span>Смотреть</span>
+          </div>
+        </button>
+      </div>
+      <button
+        class="diamonds-row"
+        :disabled="freeDiamondsLeft > 0"
+        @click="claimFreeDiamonds"
+      >
+        <img :src="iconStone" alt="" class="gem big" />
+        <div class="diamonds-info">
+          <div class="diamonds-title">+5 Алмазов</div>
+          <div class="diamonds-sub">
+            <template v-if="freeDiamondsLeft > 0">Доступно через {{ fmtMin(freeDiamondsLeft) }}</template>
+            <template v-else>За просмотр рекламы</template>
+          </div>
+        </div>
+        <span class="ad-chip">
+          <span class="ad-icon">📺</span>
+        </span>
+      </button>
+    </div>
+
     <!-- Boosters -->
     <div class="section">
       <div class="section-title">Бустеры</div>
@@ -313,6 +461,84 @@ function buyBundle(b: Bundle) {
   width: 16px;
   height: 16px;
   object-fit: contain;
+}
+
+/* Free (rewarded) booster cards */
+.card.free {
+  background: linear-gradient(180deg, #3aa84a 0%, #1e6c2e 50%, #0c4018 100%);
+  border-color: #0a2810;
+}
+.card-price.ad {
+  background: linear-gradient(180deg, #d4881a 0%, #8a5a18 100%);
+  border-color: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  gap: 4px;
+}
+.card-price.ad.cooldown {
+  background: rgba(0, 0, 0, 0.55);
+  color: #c4a880;
+  font-variant-numeric: tabular-nums;
+}
+.ad-icon {
+  font-size: 13px;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
+}
+
+/* +5 diamonds row */
+.diamonds-row {
+  margin-top: 8px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, #6a30c8 0%, #3a107a 100%);
+  border: 2px solid #1a0a3a;
+  border-radius: 12px;
+  color: #fff5d0;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.35),
+    0 3px 0 #1a0a3a;
+  transition: transform 0.08s;
+}
+.diamonds-row:active:not(:disabled) {
+  transform: translateY(2px);
+}
+.diamonds-row:disabled {
+  filter: grayscale(0.5) brightness(0.7);
+  cursor: not-allowed;
+}
+.diamonds-row .gem.big {
+  width: 28px;
+  height: 28px;
+}
+.diamonds-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+.diamonds-title {
+  font-size: 14px;
+  font-weight: 900;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+.diamonds-sub {
+  font-size: 11px;
+  color: #d8c8ff;
+  font-weight: 700;
+}
+.ad-chip {
+  background: linear-gradient(180deg, #d4881a 0%, #8a5a18 100%);
+  border: 2px solid rgba(0, 0, 0, 0.55);
+  border-radius: 10px;
+  padding: 4px 10px;
+  display: flex;
+  align-items: center;
 }
 
 </style>

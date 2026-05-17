@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import GameModal from './GameModal.vue'
 import { useGameStore, HEROES } from '@/stores/game'
+import { showRewarded } from '@/ads/ads'
 import iconCoin from '@/assets/coin.png'
 import iconStar from '@/assets/nav-item-3.png'
 import iconStone from '@/assets/stone.png'
@@ -67,6 +68,10 @@ function itemCount(id: string) {
   return game.items.find((x) => x.id === id)?.count ?? 0
 }
 
+function completeWithX2(id: string) {
+  showRewarded(() => game.completeOrder(id, 2))
+}
+
 const refreshCost = 50
 function refreshOrders() {
   if (game.diamonds < refreshCost) return
@@ -115,13 +120,23 @@ const ordersList = computed(() => {
             <img :src="iconStar" alt="" class="star-img" />
             <span>+{{ fmt(orderXp(o.itemId)) }} XP</span>
           </div>
-          <button
-            class="o-buy"
-            :disabled="itemCount(o.itemId) <= 0"
-            @click="game.completeOrder(o.id)"
-          >
-            Выполнить
-          </button>
+          <div class="o-actions">
+            <button
+              class="o-buy"
+              :disabled="itemCount(o.itemId) <= 0"
+              @click="game.completeOrder(o.id)"
+            >
+              Выполнить
+            </button>
+            <button
+              class="o-buy x2"
+              :disabled="itemCount(o.itemId) <= 0"
+              @click="completeWithX2(o.id)"
+              title="Смотреть рекламу — удвоить награду"
+            >
+              <span class="ad-icon">📺</span>×2
+            </button>
+          </div>
         </div>
       </li>
     </ul>
@@ -319,6 +334,30 @@ const ordersList = computed(() => {
 .o-buy:disabled {
   filter: grayscale(0.6) brightness(0.7);
   cursor: not-allowed;
+}
+.o-actions {
+  display: flex;
+  gap: 4px;
+  align-items: stretch;
+}
+.o-buy.x2 {
+  background: linear-gradient(180deg, #ffb83a 0%, #d4881a 50%, #8a5a18 100%);
+  border-color: #4a2810;
+  color: #2a1408;
+  font-size: 11px;
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  text-shadow: none;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 240, 200, 0.5),
+    inset 0 -2px 0 rgba(80, 40, 0, 0.4),
+    0 2px 0 #3a1f0c;
+}
+.ad-icon {
+  font-size: 12px;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
 }
 
 .refresh-btn {

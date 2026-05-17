@@ -8,9 +8,10 @@ export interface ChestReward {
 </script>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import GameModal from './GameModal.vue'
 import { useGameStore, type Chest } from '@/stores/game'
+import { showRewarded } from '@/ads/ads'
 import iconStone from '@/assets/stone.png'
 import iconCoin from '@/assets/coin.png'
 import iconSword from '@/assets/sword.png'
@@ -19,10 +20,51 @@ import sunduk1 from '@/assets/sunduk-1.png'
 import sunduk2 from '@/assets/sunduk-2.png'
 import sunduk3 from '@/assets/sunduk-3.png'
 
-defineProps<{ open: boolean }>()
+const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: []; reward: [ChestReward] }>()
 
 const game = useGameStore()
+
+// Tick the wall clock once a second while the modal is open
+// so the daily-chest countdown updates live.
+const nowTs = ref(Date.now())
+let clockTimer = 0
+function startClock() {
+  nowTs.value = Date.now()
+  if (clockTimer) return
+  clockTimer = window.setInterval(() => (nowTs.value = Date.now()), 1000)
+}
+function stopClock() {
+  if (clockTimer) {
+    clearInterval(clockTimer)
+    clockTimer = 0
+  }
+}
+watch(
+  () => props.open,
+  (v) => {
+    if (v) startClock()
+    else stopClock()
+  },
+  { immediate: true },
+)
+onBeforeUnmount(stopClock)
+
+const dailyCommonReady = computed(() => {
+  const next = game.dailyChestReadyAt
+  return next === 0 || nowTs.value >= next
+})
+const dailyCommonTimeLeft = computed(() => {
+  const next = game.dailyChestReadyAt
+  return Math.max(0, next - nowTs.value)
+})
+function fmtCountdown(ms: number): string {
+  const s = Math.ceil(ms / 1000)
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`
+}
 
 interface ChestDef {
   type: Chest['type']
@@ -47,6 +89,26 @@ const REWARDS = [
 function chestCount(type: Chest['type']) {
   return game.chests.find((c) => c.type === type)?.count ?? 0
 }
+function skipDailyCooldown(def: ChestDef) {
+  // Watch an ad to instantly receive the daily Обычный chest.
+  showRewarded(() => {
+    const c = game.chests.find((x) => x.type === def.type)
+    if (c) c.count++
+    // Bump cooldown so next free chest is in 24h from now.
+    game.dailyChestAt = Date.now()
+    const reward = game.openChest(def.type)
+    if (reward) {
+      emit('reward', {
+        chestName: def.name,
+        chestImg: def.img,
+        gold: reward.gold,
+        diamonds: reward.diamonds,
+      })
+      emit('close')
+    }
+  })
+}
+
 function openChest(def: ChestDef) {
   const count = chestCount(def.type)
   let reward: { gold: number; diamonds: number } | null = null
@@ -86,13 +148,28 @@ const list = computed(() => CHEST_DEFS)
           <img :src="d.img" :alt="d.name" class="chest-img" draggable="false" />
         </div>
         <button
-          v-if="d.gemCost === 0"
+          v-if="d.gemCost === 0 && chestCount(d.type) > 0"
           class="chest-btn open"
-          :disabled="chestCount(d.type) <= 0"
           @click="openChest(d)"
         >
           Открыть
-          <span v-if="chestCount(d.type) > 0" class="badge">{{ chestCount(d.type) }}</span>
+          <span class="badge">{{ chestCount(d.type) }}</span>
+        </button>
+        <button
+          v-else-if="d.gemCost === 0 && dailyCommonReady"
+          class="chest-btn open"
+          @click="openChest(d)"
+        >
+          Открыть
+        </button>
+        <button
+          v-else-if="d.gemCost === 0"
+          class="chest-btn ad"
+          @click="skipDailyCooldown(d)"
+          :title="'Получить сейчас за рекламу. Иначе через ' + fmtCountdown(dailyCommonTimeLeft)"
+        >
+          <span class="ad-icon">📺</span>
+          Открыть
         </button>
         <button
           v-else-if="chestCount(d.type) > 0"
@@ -225,6 +302,20 @@ const list = computed(() => CHEST_DEFS)
     inset 0 2px 0 rgba(255, 255, 255, 0.3),
     inset 0 -2px 0 rgba(40, 0, 80, 0.5),
     0 3px 0 #1a0a2a;
+}
+.chest-btn.ad {
+  background: linear-gradient(180deg, #ffb83a 0%, #d4881a 50%, #8a5a18 100%);
+  border: 2px solid #4a2810;
+  color: #2a1408;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 240, 200, 0.5),
+    inset 0 -2px 0 rgba(80, 40, 0, 0.4),
+    0 3px 0 #3a1f0c;
+  text-shadow: none;
+}
+.ad-icon {
+  font-size: 13px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
 }
 .chest-btn:active:not(:disabled) {
   transform: translateY(2px);

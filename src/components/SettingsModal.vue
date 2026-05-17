@@ -8,8 +8,6 @@ const emit = defineEmits<{ close: [] }>()
 
 const game = useGameStore()
 
-const animations = ref(true)
-
 function resetProgress() {
   if (confirm('Сбросить весь прогресс? Это действие необратимо.')) {
     game.resetAll()
@@ -37,16 +35,6 @@ function saveProgress() {
       <label class="s-row">
         <span class="s-label">Музыка</span>
         <input type="checkbox" v-model="game.settings.music" />
-        <span class="s-toggle"><span class="s-toggle-knob"></span></span>
-      </label>
-      <label class="s-row">
-        <span class="s-label">Вибрация</span>
-        <input type="checkbox" v-model="game.settings.vibro" />
-        <span class="s-toggle"><span class="s-toggle-knob"></span></span>
-      </label>
-      <label class="s-row">
-        <span class="s-label">Анимации</span>
-        <input type="checkbox" v-model="animations" />
         <span class="s-toggle"><span class="s-toggle-knob"></span></span>
       </label>
       <button class="action-btn save" @click="saveProgress">

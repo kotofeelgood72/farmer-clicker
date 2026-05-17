@@ -5,6 +5,9 @@ import { createPinia } from 'pinia'
 
 import App from './App.vue'
 import router from './router'
+import { initYandex } from '@/yandex/sdk'
+
+initYandex()
 
 window.addEventListener('contextmenu', (e) => e.preventDefault())
 window.addEventListener('selectstart', (e) => e.preventDefault())

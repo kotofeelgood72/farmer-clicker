@@ -12,10 +12,17 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100vh;
+  /* dvh handles mobile browser chrome (URL bar) correctly */
+  height: 100dvh;
   overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+  overscroll-behavior: none;
 }
 #app {
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 * {

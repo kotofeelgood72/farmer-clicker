@@ -14,6 +14,7 @@ import iconSword from '@/assets/sword.png'
 import iconScroll from '@/assets/ancient-scroll.png'
 import iconCoin from '@/assets/coin.png'
 import iconStone from '@/assets/stone.png'
+import iconClover from '@/assets/clever.png'
 import imgAnvil from '@/assets/nako.png'
 import imgHammer from '@/assets/molot.png'
 import navChests from '@/assets/nav-item-1.png'
@@ -29,6 +30,17 @@ import ForgeView from '@/components/ForgeView.vue'
 import ChestsModal, { type ChestReward } from '@/components/ChestsModal.vue'
 import ChestRewardPopup from '@/components/ChestRewardPopup.vue'
 import ShopModal from '@/components/ShopModal.vue'
+import {
+  preloadAudio,
+  playSfx,
+  startMusic,
+  stopMusic,
+  setMusicEnabled,
+  setSfxEnabled,
+  unlockAudioOnGesture,
+} from '@/audio/sounds'
+import { showInterstitial } from '@/ads/ads'
+import { watch } from 'vue'
 
 const game = useGameStore()
 
@@ -98,29 +110,81 @@ let raf = 0
 let saveTimer = 0
 let nowTimer = 0
 const nowTs = ref(Date.now())
+const adsPaused = ref(false)
 
 function loop() {
   const now = performance.now()
   const dt = (now - last) / 1000
   last = now
-  game.tick(dt)
+  if (!adsPaused.value) game.tick(dt)
   raf = requestAnimationFrame(loop)
+}
+
+function onAdsPause() {
+  adsPaused.value = true
+  // Mute everything for the duration of the ad (Yandex requirement).
+  setMusicEnabled(false)
+  setSfxEnabled(false)
+}
+function onAdsResume() {
+  adsPaused.value = false
+  // Reset dt so accumulated wall-clock time during the ad isn't credited.
+  last = performance.now()
+  setMusicEnabled(game.settings.music)
+  setSfxEnabled(game.settings.sound)
+}
+
+function ui() {
+  playSfx('ui')
+}
+
+function closeUpgrades() {
+  showUpgrades.value = false
+  showInterstitial('upgrades-close')
+}
+function closeOrders() {
+  showOrders.value = false
+  showInterstitial('orders-close')
+}
+function closeForgeWithAd() {
+  closeForge()
+  showInterstitial('forge-close')
 }
 
 onMounted(() => {
   game.load()
   game.refillDailyChest()
+  // audio: sync with persisted settings, preload, and arm autoplay on first gesture
+  setSfxEnabled(game.settings.sound)
+  setMusicEnabled(game.settings.music)
+  preloadAudio()
+  unlockAudioOnGesture()
+  if (game.settings.music) startMusic()
+  // react to settings toggles
+  watch(
+    () => game.settings.sound,
+    (v) => setSfxEnabled(v),
+  )
+  watch(
+    () => game.settings.music,
+    (v) => (v ? startMusic() : stopMusic()),
+  )
   last = performance.now()
   raf = requestAnimationFrame(loop)
   saveTimer = window.setInterval(() => game.save(), 5000)
   nowTimer = window.setInterval(() => (nowTs.value = Date.now()), 500)
   window.addEventListener('beforeunload', () => game.save())
+  window.addEventListener('ads:pause', onAdsPause)
+  window.addEventListener('ads:resume', onAdsResume)
 })
 
 onBeforeUnmount(() => {
   cancelAnimationFrame(raf)
   clearInterval(saveTimer)
   clearInterval(nowTimer)
+  window.removeEventListener('ads:pause', onAdsPause)
+  window.removeEventListener('ads:resume', onAdsResume)
+  stopMusic()
   game.save()
 })
 
@@ -130,8 +194,41 @@ const goldX2Left = computed(() =>
 const autoLeft = computed(() =>
   Math.max(0, Math.floor((game.autoClickUntil - nowTs.value) / 1000)),
 )
+const critX2Left = computed(() =>
+  Math.max(0, Math.floor((game.critX2Until - nowTs.value) / 1000)),
+)
+
+function fmtBoosterTime(s: number): string {
+  if (s >= 60) {
+    const m = Math.floor(s / 60)
+    const sec = s % 60
+    return `${m}:${sec.toString().padStart(2, '0')}`
+  }
+  return `${s}с`
+}
+
+interface ActiveBooster {
+  id: 'gold' | 'speed' | 'luck'
+  label: string
+  left: number
+  icon: string
+  iconAlt: string
+  emoji: string
+  variant: string
+}
+const activeBoosters = computed<ActiveBooster[]>(() => {
+  const list: ActiveBooster[] = []
+  if (goldX2Left.value > 0)
+    list.push({ id: 'gold',  label: 'x2 Золото',   left: goldX2Left.value, icon: iconCoin,   iconAlt: 'gold',   emoji: '🪙', variant: 'gold'  })
+  if (autoLeft.value > 0)
+    list.push({ id: 'speed', label: 'x2 Скорость', left: autoLeft.value,   icon: iconCoin,   iconAlt: 'speed',  emoji: '⚡', variant: 'speed' })
+  if (critX2Left.value > 0)
+    list.push({ id: 'luck',  label: 'x2 Удача',    left: critX2Left.value, icon: iconClover, iconAlt: 'luck',   emoji: '🍀', variant: 'luck'  })
+  return list
+})
 
 const hasUnopenedChests = computed(() => game.chests.some((c) => c.count > 0))
+const hasOrders = computed(() => game.orders.length > 0)
 
 // Background of the main game viewport — switches with the forge level milestone.
 const forgeBackground = computed(() => {
@@ -278,7 +375,7 @@ const forgeProgress = computed(() => game.forgeXpProgress)
             <div class="cur-rate" v-if="game.passivePerSec > 0">+{{ fmt(game.passivePerSec) }}/сек</div>
           </div>
         </div>
-        <div class="cur diamonds clickable" @click.stop="showShop = true">
+        <div class="cur diamonds clickable" @click.stop="ui(); showShop = true">
           <img :src="iconStone" alt="" class="gem-img" draggable="false" />
           <div class="cur-value">{{ game.diamonds }}</div>
           <span class="plus">+</span>
@@ -287,22 +384,22 @@ const forgeProgress = computed(() => game.forgeXpProgress)
 
       <!-- Side action icons -->
       <div class="side-right">
-        <button class="side-btn" title="Настройки" @click.stop="showSettings = true">
+        <button class="side-btn" title="Настройки" @click.stop="ui(); showSettings = true">
           <span class="side-icon"><img :src="navSettings" alt="" draggable="false" /></span>
           <span class="side-label">Настройки</span>
         </button>
-        <button class="side-btn" title="Магазин" @click.stop="showShop = true">
+        <button class="side-btn" title="Магазин" @click.stop="ui(); showShop = true">
           <span class="side-icon"><img :src="navShop" alt="" draggable="false" /></span>
           <span class="side-label">Магазин</span>
         </button>
-        <button class="side-btn" title="События" @click.stop="showAchievements = true">
+        <button class="side-btn" title="События" @click.stop="ui(); showAchievements = true">
           <span class="side-icon">
             <img :src="navEvents" alt="" draggable="false" />
             <span v-if="hasClaimableAchievement" class="notify-dot"></span>
           </span>
           <span class="side-label">События</span>
         </button>
-        <button class="side-btn" title="Сундуки" @click.stop="showChests = true">
+        <button class="side-btn" title="Сундуки" @click.stop="ui(); showChests = true">
           <span class="side-icon">
             <img :src="navChests" alt="" draggable="false" />
             <span v-if="hasUnopenedChests" class="notify-dot"></span>
@@ -346,10 +443,22 @@ const forgeProgress = computed(() => game.forgeXpProgress)
           </div>
         </transition-group>
 
-        <div class="badges">
-          <div v-if="goldX2Left > 0" class="badge">x2 золото · {{ goldX2Left }}с</div>
-          <div v-if="autoLeft > 0" class="badge">Авто-клик · {{ autoLeft }}с</div>
-        </div>
+        <transition-group name="boost" tag="div" class="active-boosters">
+          <div
+            v-for="b in activeBoosters"
+            :key="b.id"
+            class="boost-chip"
+            :class="'v-' + b.variant"
+          >
+            <div class="boost-icon">
+              <img :src="b.icon" :alt="b.iconAlt" draggable="false" />
+            </div>
+            <div class="boost-body">
+              <div class="boost-label">{{ b.label }}</div>
+              <div class="boost-time">{{ fmtBoosterTime(b.left) }}</div>
+            </div>
+          </div>
+        </transition-group>
       </div>
 
       <!-- Forge level bar -->
@@ -544,9 +653,9 @@ const forgeProgress = computed(() => game.forgeXpProgress)
       </main>
 
       <!-- Modals -->
-      <UpgradesModal :open="showUpgrades" @close="showUpgrades = false" />
+      <UpgradesModal :open="showUpgrades" @close="closeUpgrades" />
       <ItemsModal :open="showItems" @close="showItems = false" />
-      <OrdersModal :open="showOrders" @close="showOrders = false" />
+      <OrdersModal :open="showOrders" @close="closeOrders" />
       <AchievementsModal :open="showAchievements" @close="showAchievements = false" />
       <SettingsModal :open="showSettings" @close="showSettings = false" />
       <ChestsModal
@@ -563,26 +672,29 @@ const forgeProgress = computed(() => game.forgeXpProgress)
         @close="chestReward = null"
       />
       <ShopModal :open="showShop" @close="showShop = false" />
-      <ForgeView v-if="onForge" @close="closeForge" />
+      <ForgeView v-if="onForge" @close="closeForgeWithAd" />
 
       <!-- Bottom blurred backdrop -->
       <div class="bottom-bg"></div>
 
       <!-- Bottom navigation -->
       <nav class="bottom-nav">
-        <button :class="{ active: showUpgrades }" @click.stop="showUpgrades = true">
+        <button :class="{ active: showUpgrades }" @click.stop="ui(); showUpgrades = true">
           <img :src="iconLevelUp" alt="" class="nav-icon" draggable="false" />
           <span class="nav-label">Улучшения</span>
         </button>
-        <button :class="{ active: showItems }" @click.stop="showItems = true">
+        <button :class="{ active: showItems }" @click.stop="ui(); showItems = true">
           <img :src="iconSword" alt="" class="nav-icon" draggable="false" />
           <span class="nav-label">Предметы</span>
         </button>
-        <button :class="{ active: showOrders }" @click.stop="showOrders = true">
-          <img :src="iconScroll" alt="" class="nav-icon" draggable="false" />
+        <button :class="{ active: showOrders }" @click.stop="ui(); showOrders = true">
+          <span class="nav-icon-wrap">
+            <img :src="iconScroll" alt="" class="nav-icon" draggable="false" />
+            <span v-if="hasOrders" class="notify-dot nav-dot"></span>
+          </span>
           <span class="nav-label">Заказы</span>
         </button>
-        <button :class="{ active: onForge }" @click.stop="openForge">
+        <button :class="{ active: onForge }" @click.stop="ui(); openForge()">
           <img :src="iconBlacksmith" alt="" class="nav-icon" draggable="false" />
           <span class="nav-label">Кузница</span>
         </button>
@@ -1043,22 +1155,132 @@ const forgeProgress = computed(() => game.forgeXpProgress)
   100% { opacity: 0; transform: translate(-50%, -180%) scale(1); }
 }
 
-.badges {
+.active-boosters {
   position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 70px;
+  left: 12px;
   display: flex;
+  flex-direction: column;
   gap: 6px;
   pointer-events: none;
+  z-index: 6;
 }
-.badge {
-  background: rgba(212, 136, 26, 0.9);
-  color: #1a0f06;
-  padding: 4px 10px;
-  border-radius: 12px;
+.boost-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 4px;
+  border-radius: 20px;
+  border: 2px solid var(--chip-border, #6a3a18);
+  background: var(--chip-bg, linear-gradient(180deg, #4a2c14 0%, #2a1808 100%));
+  box-shadow:
+    0 3px 8px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.45),
+    0 0 0 0 var(--chip-glow, rgba(255, 200, 80, 0.55));
+  animation: chipPulse 1.8s ease-in-out infinite;
+  position: relative;
+}
+.boost-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--chip-icon-bg, radial-gradient(circle at 30% 30%, #ffe680 0%, #c89030 80%));
+  border: 2px solid rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.4);
+}
+.boost-icon img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+.boost-body {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+  min-width: 0;
+}
+.boost-label {
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 900;
+  color: #fff5d0;
+  letter-spacing: 0.2px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+  white-space: nowrap;
+}
+.boost-time {
+  font-size: 13px;
+  font-weight: 900;
+  color: #ffd95a;
+  text-shadow:
+    -1px 0 0 #3a1f0c,
+    1px 0 0 #3a1f0c,
+    0 -1px 0 #3a1f0c,
+    0 1px 0 #3a1f0c,
+    0 2px 3px rgba(0, 0, 0, 0.7);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Variants */
+.boost-chip.v-gold {
+  --chip-border: #b8821e;
+  --chip-bg: linear-gradient(180deg, #6a4818 0%, #3a2408 100%);
+  --chip-glow: rgba(255, 200, 80, 0.6);
+  --chip-icon-bg: radial-gradient(circle at 30% 30%, #ffe680 0%, #c89030 80%);
+}
+.boost-chip.v-speed {
+  --chip-border: #2e72b8;
+  --chip-bg: linear-gradient(180deg, #1f4878 0%, #0c2444 100%);
+  --chip-glow: rgba(120, 180, 255, 0.55);
+  --chip-icon-bg: radial-gradient(circle at 30% 30%, #a8d8ff 0%, #2e72c8 80%);
+}
+.boost-chip.v-luck {
+  --chip-border: #3a9a3a;
+  --chip-bg: linear-gradient(180deg, #1f5a2a 0%, #0a2810 100%);
+  --chip-glow: rgba(120, 230, 120, 0.55);
+  --chip-icon-bg: radial-gradient(circle at 30% 30%, #b8f0a8 0%, #2e8b3a 80%);
+}
+
+@keyframes chipPulse {
+  0%, 100% {
+    box-shadow:
+      0 3px 8px rgba(0, 0, 0, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      inset 0 -2px 4px rgba(0, 0, 0, 0.45),
+      0 0 0 0 var(--chip-glow, rgba(255, 200, 80, 0.55));
+  }
+  50% {
+    box-shadow:
+      0 3px 8px rgba(0, 0, 0, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      inset 0 -2px 4px rgba(0, 0, 0, 0.45),
+      0 0 0 6px transparent,
+      0 0 14px 2px var(--chip-glow, rgba(255, 200, 80, 0.55));
+  }
+}
+
+/* Enter / leave transitions */
+.boost-enter-active,
+.boost-leave-active {
+  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.boost-enter-from {
+  opacity: 0;
+  transform: translateX(-30px) scale(0.7);
+}
+.boost-leave-to {
+  opacity: 0;
+  transform: translateX(-30px) scale(0.7);
+}
+.boost-move {
+  transition: transform 0.3s ease;
 }
 
 /* Forge progress */
@@ -1243,6 +1465,23 @@ const forgeProgress = computed(() => game.forgeXpProgress)
     inset 0 0 12px rgba(255, 180, 80, 0.3),
     0 3px 0 #3a1f0c,
     0 4px 8px rgba(255, 150, 50, 0.3);
+}
+.nav-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.nav-dot {
+  top: -2px;
+  right: -4px;
+  width: 12px;
+  height: 12px;
+  animation: dotPulse 1.4s ease-in-out infinite;
+}
+@keyframes dotPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); }
+  50%      { transform: scale(1.18); box-shadow: 0 0 8px rgba(255, 80, 80, 0.85); }
 }
 .nav-icon {
   width: 36px;
@@ -1442,5 +1681,238 @@ label {
   text-align: center;
   min-width: 280px;
   color: #f3e9c8;
+}
+
+/* ----------------------------------------------------------- */
+/*  RESPONSIVE: mobile (≤ 768px) — drop the tablet bezel,      */
+/*  fill the viewport, scale UI for touch.                     */
+/* ----------------------------------------------------------- */
+@media (max-width: 768px) {
+  .game {
+    padding: 0;
+    min-height: 100dvh;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+  .screen {
+    width: 100vw;
+    max-width: none;
+    height: 100dvh;
+    max-height: 100dvh;
+    aspect-ratio: auto;
+    padding: 0;
+    border-radius: 0;
+    border: none;
+    background-image: none;
+    box-shadow: none;
+  }
+  /* Hide camera + home-button cosmetic dots from the tablet frame. */
+  .screen::before,
+  .screen::after {
+    display: none;
+  }
+  .viewport {
+    border-radius: 0;
+    box-shadow: none;
+    /* Respect iOS notch / Android status bar. */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Top currency bar — slimmer chips */
+  .topbar {
+    padding: 8px 8px;
+    gap: 6px;
+  }
+  .cur {
+    height: 38px;
+    border-radius: 19px;
+    padding: 0 10px 0 2px;
+    gap: 5px;
+  }
+  .coin-img {
+    width: 30px;
+    height: 30px;
+  }
+  .gem-img {
+    width: 24px;
+    height: 24px;
+  }
+  .cur-value {
+    font-size: 13px;
+  }
+  .cur-rate {
+    font-size: 9px;
+  }
+  .plus {
+    width: 22px;
+    height: 22px;
+    font-size: 15px;
+  }
+
+  /* Side action buttons — smaller, tighter */
+  .side-right {
+    top: 4px;
+    right: 4px;
+    gap: 6px;
+  }
+  .side-icon {
+    width: 48px;
+    height: 48px;
+  }
+  .side-label {
+    font-size: 10px;
+  }
+
+  /* Active booster chips */
+  .active-boosters {
+    top: 56px;
+    left: 8px;
+    gap: 4px;
+  }
+  .boost-chip {
+    padding: 3px 9px 3px 3px;
+    border-radius: 16px;
+    gap: 6px;
+  }
+  .boost-icon {
+    width: 26px;
+    height: 26px;
+  }
+  .boost-icon img {
+    width: 17px;
+    height: 17px;
+  }
+  .boost-label {
+    font-size: 10px;
+  }
+  .boost-time {
+    font-size: 11px;
+  }
+
+  /* Anvil + character scaling */
+  .anvil-area {
+    width: 56%;
+    max-width: 280px;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    right: 2%;
+    bottom: 12%;
+  }
+  .character {
+    left: 26%;
+    bottom: -8%;
+    height: auto;
+    width: 60%;
+    max-height: none;
+  }
+
+  /* Floating hit numbers a bit smaller */
+  .float-hit {
+    font-size: 28px;
+  }
+  .float-hit.crit {
+    font-size: 34px;
+  }
+  .float-coin {
+    width: 28px;
+    height: 28px;
+  }
+
+  /* Forge level bar — full width on mobile */
+  .forge-bar {
+    padding: 6px 14px 8px;
+    width: auto;
+    min-width: 0;
+    margin: 0 8px 8px;
+    align-self: stretch;
+    border-radius: 12px;
+  }
+  .forge-title {
+    font-size: 12px;
+  }
+  .forge-progress {
+    height: 14px;
+  }
+  .forge-text {
+    font-size: 11px;
+  }
+
+  /* Bottom blur softer + nav buttons fit 4 across narrow screens */
+  .bottom-bg {
+    height: 160px;
+  }
+  .bottom-nav {
+    gap: 5px;
+    padding: 6px 6px calc(8px + env(safe-area-inset-bottom));
+  }
+  .bottom-nav button {
+    width: auto;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 6px 2px 5px;
+    border-radius: 10px;
+  }
+  .nav-icon {
+    width: 28px;
+    height: 28px;
+  }
+  .nav-label {
+    font-size: 10px;
+    letter-spacing: 0.1px;
+  }
+}
+
+/* Very narrow phones */
+@media (max-width: 400px) {
+  .cur-value {
+    font-size: 12px;
+  }
+  .side-icon {
+    width: 42px;
+    height: 42px;
+  }
+  .side-label {
+    font-size: 9px;
+  }
+  .anvil-area {
+    width: 60%;
+  }
+  .character {
+    width: 64%;
+  }
+  .nav-icon {
+    width: 24px;
+    height: 24px;
+  }
+  .nav-label {
+    font-size: 9px;
+  }
+}
+
+/* Portrait orientation — character + anvil layered vertically
+   to use the tall canvas instead of being cramped sideways. */
+@media (max-width: 768px) and (orientation: portrait) {
+  .stage {
+    min-height: 0;
+  }
+  .anvil-area {
+    width: 64%;
+    max-width: 320px;
+    right: 50%;
+    transform: translateX(50%);
+    bottom: 18%;
+  }
+  .character {
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: -4%;
+    width: 80%;
+  }
+  .stage:active .character {
+    transform: translateX(-50%) scale(0.985);
+  }
 }
 </style>

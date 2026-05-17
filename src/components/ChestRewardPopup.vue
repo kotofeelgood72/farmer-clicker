@@ -1,14 +1,20 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import iconCoin from '@/assets/coin.png'
 import iconStone from '@/assets/stone.png'
+import { useGameStore } from '@/stores/game'
+import { showRewarded } from '@/ads/ads'
 
-defineProps<{
+const props = defineProps<{
   chestName: string
   chestImg: string
   gold: number
   diamonds: number
 }>()
 const emit = defineEmits<{ close: [] }>()
+
+const game = useGameStore()
+const doubled = ref(false)
 
 function fmt(n: number): string {
   if (n < 1000) return Math.floor(n).toString()
@@ -20,6 +26,15 @@ function fmt(n: number): string {
     i++
   }
   return v.toFixed(v < 10 ? 1 : 0) + units[i]
+}
+
+function doubleReward() {
+  if (doubled.value) return
+  showRewarded(() => {
+    doubled.value = true
+    if (props.gold > 0) game.addGold(props.gold)
+    if (props.diamonds > 0) game.diamonds += props.diamonds
+  })
 }
 </script>
 
@@ -38,7 +53,16 @@ function fmt(n: number): string {
           <span>+{{ diamonds }} алмазов</span>
         </div>
       </div>
-      <button class="reward-ok" @click="emit('close')">Забрать</button>
+      <div class="reward-buttons">
+        <button
+          v-if="!doubled && (gold > 0 || diamonds > 0)"
+          class="reward-x2"
+          @click="doubleReward"
+        >
+          <span class="ad-icon">📺</span>×2
+        </button>
+        <button class="reward-ok" @click="emit('close')">Забрать</button>
+      </div>
     </div>
   </div>
 </template>
@@ -142,5 +166,36 @@ function fmt(n: number): string {
     inset 0 2px 0 rgba(255, 255, 255, 0.3),
     inset 0 -2px 0 rgba(0, 60, 20, 0.5),
     0 1px 0 #0a2810;
+}
+.reward-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+.reward-x2 {
+  padding: 8px 16px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffb83a 0%, #d4881a 50%, #8a5a18 100%);
+  border: 2px solid #4a2810;
+  color: #2a1408;
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 240, 200, 0.5),
+    inset 0 -2px 0 rgba(80, 40, 0, 0.4),
+    0 3px 0 #3a1f0c;
+  transition: transform 0.08s;
+}
+.reward-x2:active {
+  transform: translateY(2px);
+}
+.ad-icon {
+  font-size: 13px;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
 }
 </style>

@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { playSfx } from '@/audio/sounds'
 import drop1 from '@/assets/drop/1.png'
 import drop2 from '@/assets/drop/2.png'
 import drop3 from '@/assets/drop/3.png'
@@ -175,6 +176,13 @@ export const useGameStore = defineStore('game', {
     goldX2Until: 0,
     autoClickUntil: 0,
 
+    // rewarded-ad cooldowns (timestamps; next claim allowed at this ms)
+    adFreeBoosterGoldNextAt: 0,
+    adFreeBoosterSpeedNextAt: 0,
+    adFreeBoosterLuckNextAt: 0,
+    adFreeChestNextAt: 0,
+    adDiamondsNextAt: 0,
+
     // collections
     upgrades: [
       // Tier 1 — basic forge
@@ -322,6 +330,12 @@ export const useGameStore = defineStore('game', {
       return Math.floor((p + itemsIncome) * m)
     },
     upgradeCost: () => (u: Upgrade) => Math.floor(u.baseCost * Math.pow(u.costMul, u.level)),
+    dailyChestReadyAt(state): number {
+      // Timestamp when the next free Обычный chest becomes available.
+      // 0 if it's ready right now (or never claimed yet).
+      if (state.dailyChestAt === 0) return 0
+      return state.dailyChestAt + 24 * 3600 * 1000
+    },
     // XP awarded for completing an order — generous, scales with item level.
     // At item lvl 1: 150 XP (level 1→2 is 100, so first order pops a level instantly).
     // At item lvl 10: 600 XP (10→11 is 1000 → ~2 orders).
@@ -338,6 +352,7 @@ export const useGameStore = defineStore('game', {
       this.addGold(gain)
       this.lastHit = gain
       this.lastCrit = isCrit
+      playSfx(isCrit ? 'critical' : 'hammer')
       this.checkAchievements()
     },
 
@@ -390,17 +405,20 @@ export const useGameStore = defineStore('game', {
         rewardDiamonds: rng(0, 2),
         timeLeft: 60,
       }
+      const wasEmpty = this.orders.length === 0
       this.orders.push(order)
+      // Only fanfare on the 0 -> 1+ transition, not on every fill-up.
+      if (wasEmpty) playSfx('order')
     },
 
-    completeOrder(id: string) {
+    completeOrder(id: string, rewardMul = 1) {
       const o = this.orders.find((x) => x.id === id)
       if (!o) return
       const it = this.items.find((x) => x.id === o.itemId)
       if (!it || it.count <= 0) return
       it.count--
-      this.addGold(o.rewardGold)
-      this.diamonds += o.rewardDiamonds
+      this.addGold(o.rewardGold * rewardMul)
+      this.diamonds += o.rewardDiamonds * rewardMul
       this.gainForgeXp(this.orderXp(it.requiredLevel))
       // small chance for a chest
       if (Math.random() < 0.3) {
@@ -437,6 +455,7 @@ export const useGameStore = defineStore('game', {
       }
       if (gold > 0) this.addGold(gold)
       if (diamonds > 0) this.diamonds += diamonds
+      playSfx('open')
       return { gold, diamonds }
     },
 
@@ -496,10 +515,13 @@ export const useGameStore = defineStore('game', {
         const ticks = Math.max(1, Math.floor(dtSec * 5))
         for (let i = 0; i < ticks; i++) this.click()
       }
+      // top up daily Обычный chest while the game is running
+      this.refillDailyChest()
       // orders countdown + occasional spawn
       for (const o of this.orders) o.timeLeft = Math.max(0, o.timeLeft - dtSec)
       this.orders = this.orders.filter((o) => o.timeLeft > 0)
-      if (Math.random() < 0.02 * dtSec * 60) this.spawnOrder()
+      // ~0.4 spawns/sec on average — slow steady drip, less batchy
+      if (Math.random() < 0.4 * dtSec) this.spawnOrder()
       this.checkAchievements()
     },
 
