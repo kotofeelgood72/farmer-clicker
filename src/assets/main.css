@@ -1,3 +1,12 @@
+@import '@fontsource/fredoka/400.css';
+@import '@fontsource/fredoka/500.css';
+@import '@fontsource/fredoka/600.css';
+@import '@fontsource/fredoka/700.css';
+@import '@fontsource/fredoka/latin-ext-400.css';
+@import '@fontsource/fredoka/latin-ext-500.css';
+@import '@fontsource/fredoka/latin-ext-600.css';
+@import '@fontsource/fredoka/latin-ext-700.css';
+
 @import './base.css';
 
 #app {
@@ -5,4 +14,12 @@
   margin: 0 auto;
   padding: 0;
   font-weight: normal;
+}
+
+/* Custom cursor — enforced with !important so scoped component styles
+   (cursor: pointer на кнопках и т.п.) не перебивают глобальный курсор. */
+*,
+*::before,
+*::after {
+  cursor: url('./cursor.png') 0 0, auto !important;
 }

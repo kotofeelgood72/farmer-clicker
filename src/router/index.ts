@@ -1,8 +1,10 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createMemoryHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  // Memory history — игра встраивается в iframe Яндекса с непредсказуемым
+  // path; createWebHistory не сможет смэтчить такой URL на наши routes.
+  history: createMemoryHistory(),
   routes: [
     {
       path: '/',

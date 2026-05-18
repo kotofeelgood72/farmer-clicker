@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import GameModal from './GameModal.vue'
 import { useGameStore, type Achievement } from '@/stores/game'
+import { fmt } from '@/utils/fmt'
 import iconStone from '@/assets/stone.png'
 
 defineProps<{ open: boolean }>()
@@ -20,18 +21,6 @@ function progress(a: Achievement): number {
 
 function pct(a: Achievement): number {
   return Math.min(100, (progress(a) / a.target) * 100)
-}
-
-function fmt(n: number): string {
-  if (n < 1000) return Math.floor(n).toString()
-  const units = ['', 'K', 'M', 'B', 'T']
-  let i = 0
-  let v = n
-  while (v >= 1000 && i < units.length - 1) {
-    v /= 1000
-    i++
-  }
-  return v.toFixed(v < 10 ? 2 : 1) + units[i]
 }
 
 const list = computed(() => game.achievements)

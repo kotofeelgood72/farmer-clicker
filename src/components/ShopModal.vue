@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import GameModal from './GameModal.vue'
 import { useGameStore } from '@/stores/game'
 import { showRewarded } from '@/ads/ads'
+import { fmt } from '@/utils/fmt'
 import iconCoin from '@/assets/coin.png'
 import iconStone from '@/assets/stone.png'
 import iconClover from '@/assets/clever.png'
@@ -179,18 +180,6 @@ const BUNDLES: Bundle[] = [
   { id: 'big',     title: 'Большой',   gems: 550,  gold: 50_000,  image: iconChest2, price: 299 },
   { id: 'huge',    title: 'Огромный',  gems: 1200, gold: 120_000, image: iconChest3, price: 599 },
 ]
-
-function fmt(n: number): string {
-  if (n < 1000) return Math.floor(n).toString()
-  const units = ['', 'K', 'M', 'B']
-  let i = 0
-  let v = n
-  while (v >= 1000 && i < units.length - 1) {
-    v /= 1000
-    i++
-  }
-  return v.toFixed(v < 10 ? 1 : 0) + units[i]
-}
 
 function buyBooster(b: Booster) {
   if (game.diamonds < b.cost) return

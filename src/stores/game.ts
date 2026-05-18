@@ -589,5 +589,11 @@ export const useGameStore = defineStore('game', {
       // reset state by replacing
       this.$reset()
     },
+
+    /** Set UI language from the Yandex SDK (ru/en/be/kk/uk/uz/...). Uppercased for legacy save compat. */
+    applyDetectedLang(lang: string) {
+      if (!lang) return
+      this.settings.lang = lang.toUpperCase()
+    },
   },
 })

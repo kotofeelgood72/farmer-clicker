@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import GameModal from './GameModal.vue'
 import { useGameStore, type Item, type Rarity } from '@/stores/game'
+import { fmt } from '@/utils/fmt'
 import iconCoin from '@/assets/coin.png'
 
 defineProps<{ open: boolean }>()
@@ -17,18 +18,6 @@ const RARITY_CLASS: Record<Rarity, string> = {
   'Эпический': 'r-epic',
   'Легендарный': 'r-legendary',
   'Мифический': 'r-mythic',
-}
-
-function fmt(n: number): string {
-  if (n < 1000) return Math.floor(n).toString()
-  const units = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi']
-  let i = 0
-  let v = n
-  while (v >= 1000 && i < units.length - 1) {
-    v /= 1000
-    i++
-  }
-  return v.toFixed(v < 10 ? 2 : 1) + units[i]
 }
 
 function isUnlocked(it: Item): boolean {

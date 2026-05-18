@@ -41,23 +41,12 @@ import {
   unlockAudioOnGesture,
 } from '@/audio/sounds'
 import { showInterstitial } from '@/ads/ads'
+import { gameplayPause, gameplayResume, tryRequestReview, getLang } from '@/yandex/sdk'
+import { fmt } from '@/utils/fmt'
 import { watch } from 'vue'
 
 const game = useGameStore()
 
-type Tab =
-  | 'main'
-  | 'upgrades'
-  | 'items'
-  | 'orders'
-  | 'shop'
-  | 'achievements'
-  | 'map'
-  | 'chests'
-  | 'settings'
-
-const tab = ref<Tab>('main')
-const menuOpen = ref(false)
 const showUpgrades = ref(false)
 const showItems = ref(false)
 const showOrders = ref(false)
@@ -75,35 +64,6 @@ function openForge() {
 }
 function closeForge() {
   router.push('/')
-}
-
-const upgradeCategory = ref<'Кузница' | 'Рабочие' | 'Материалы' | 'Особые'>('Кузница')
-const itemCategory = ref<'Оружие' | 'Броня' | 'Аксессуары'>('Оружие')
-
-const filteredUpgrades = computed(() =>
-  game.upgrades.filter((u) => u.category === upgradeCategory.value),
-)
-const filteredItems = computed(() =>
-  game.items.filter((i) => i.category === itemCategory.value),
-)
-
-function fmt(n: number): string {
-  if (n < 1000) return Math.floor(n).toString()
-  const units = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi']
-  let i = 0
-  let v = n
-  while (v >= 1000 && i < units.length - 1) {
-    v /= 1000
-    i++
-  }
-  return v.toFixed(2) + units[i]
-}
-
-function fmtTime(s: number): string {
-  const h = Math.floor(s / 3600)
-  const m = Math.floor((s % 3600) / 60)
-  const sec = Math.floor(s % 60)
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`
 }
 
 let last = performance.now()
@@ -126,6 +86,7 @@ function onAdsPause() {
   // Mute everything for the duration of the ad (Yandex requirement).
   setMusicEnabled(false)
   setSfxEnabled(false)
+  gameplayPause()
 }
 function onAdsResume() {
   adsPaused.value = false
@@ -133,6 +94,7 @@ function onAdsResume() {
   last = performance.now()
   setMusicEnabled(game.settings.music)
   setSfxEnabled(game.settings.sound)
+  gameplayResume()
 }
 
 function ui() {
@@ -154,6 +116,7 @@ function closeForgeWithAd() {
 
 onMounted(() => {
   game.load()
+  game.applyDetectedLang(getLang())
   game.refillDailyChest()
   // audio: sync with persisted settings, preload, and arm autoplay on first gesture
   setSfxEnabled(game.settings.sound)
@@ -253,13 +216,6 @@ const hasClaimableAchievement = computed(() =>
     return v >= a.target
   }),
 )
-
-function itemName(id: string) {
-  return game.items.find((x) => x.id === id)?.name ?? '?'
-}
-function itemCount(id: string) {
-  return game.items.find((x) => x.id === id)?.count ?? 0
-}
 
 // floating click numbers on main screen
 interface FloatHit {
@@ -361,6 +317,29 @@ function doClick(_ev: MouseEvent) {
 
 // forge level progress (display) — XP into current level / XP needed for next level
 const forgeProgress = computed(() => game.forgeXpProgress)
+
+const anyOverlayOpen = computed(
+  () =>
+    showUpgrades.value ||
+    showItems.value ||
+    showOrders.value ||
+    showAchievements.value ||
+    showSettings.value ||
+    showChests.value ||
+    showShop.value ||
+    chestReward.value !== null ||
+    onForge.value,
+)
+
+watch(anyOverlayOpen, (open) => {
+  if (open) gameplayPause()
+  else gameplayResume()
+})
+
+// Trigger review on a positive moment: after a chest reward popup is closed.
+watch(chestReward, (v, prev) => {
+  if (prev && !v) tryRequestReview()
+})
 </script>
 
 <template>
@@ -409,8 +388,8 @@ const forgeProgress = computed(() => game.forgeXpProgress)
         </button>
       </div>
 
-      <!-- Main play area (only on main tab) -->
-      <div v-if="tab === 'main' && !onForge" class="stage" ref="stageEl" @click="doClick($event)">
+      <!-- Main play area -->
+      <div v-if="!onForge" class="stage" ref="stageEl" @click="doClick($event)">
         <img :src="characterImg" alt="Кузнец" class="character" draggable="false" />
         <div class="anvil-area" ref="anvilEl">
           <div class="anvil-glow"></div>
@@ -463,195 +442,13 @@ const forgeProgress = computed(() => game.forgeXpProgress)
       </div>
 
       <!-- Forge level bar -->
-      <div v-if="tab === 'main' && !onForge" class="forge-bar">
+      <div v-if="!onForge" class="forge-bar">
         <div class="forge-title">Уровень наковальни {{ game.forgeLevelDisplay }}</div>
         <div class="forge-progress">
           <div class="forge-fill" :style="{ width: forgeProgress.pct + '%' }"></div>
           <div class="forge-text">{{ fmt(forgeProgress.current) }} / {{ fmt(forgeProgress.max) }} XP</div>
         </div>
       </div>
-
-      <!-- Other panels (kept for full functionality) -->
-      <main v-if="tab !== 'main'" class="content">
-        <section v-if="tab === 'upgrades'" class="panel">
-          <h2>Улучшения</h2>
-          <div class="subtabs">
-            <button
-              v-for="c in (['Кузница', 'Рабочие', 'Материалы', 'Особые'] as const)"
-              :key="c"
-              :class="{ active: upgradeCategory === c }"
-              @click="upgradeCategory = c"
-            >
-              {{ c }}
-            </button>
-          </div>
-          <ul class="cards">
-            <li v-for="u in filteredUpgrades" :key="u.id" class="card">
-              <div>
-                <div class="card-title">{{ u.name }} <span class="lvl">Ур. {{ u.level }}</span></div>
-                <div class="muted">{{ u.effect }}</div>
-              </div>
-              <button class="buy" :disabled="game.gold < game.upgradeCost(u)" @click="game.buyUpgrade(u.id)">
-                Купить ({{ fmt(game.upgradeCost(u)) }})
-              </button>
-            </li>
-          </ul>
-        </section>
-
-        <section v-if="tab === 'items'" class="panel">
-          <h2>Создание предметов</h2>
-          <div class="subtabs">
-            <button
-              v-for="c in (['Оружие', 'Броня', 'Аксессуары'] as const)"
-              :key="c"
-              :class="{ active: itemCategory === c }"
-              @click="itemCategory = c"
-            >
-              {{ c }}
-            </button>
-          </div>
-          <ul class="cards">
-            <li v-for="it in filteredItems" :key="it.id" class="card">
-              <div>
-                <div class="card-title">
-                  {{ it.name }}
-                  <span class="rarity" :class="'r-' + it.rarity">{{ it.rarity }}</span>
-                </div>
-                <div class="muted">Доход: +{{ it.income }}/с | В наличии: {{ it.count }}</div>
-              </div>
-              <button class="buy" :disabled="game.gold < it.cost" @click="game.craft(it.id)">
-                Создать ({{ fmt(it.cost) }})
-              </button>
-            </li>
-          </ul>
-        </section>
-
-        <section v-if="tab === 'orders'" class="panel">
-          <h2>Заказы героев</h2>
-          <p v-if="game.orders.length === 0" class="muted">Герои в пути... подождите или позовите.</p>
-          <ul class="cards">
-            <li v-for="o in game.orders" :key="o.id" class="card">
-              <div>
-                <div class="card-title">{{ o.hero }} хочет: {{ itemName(o.itemId) }}</div>
-                <div class="muted">
-                  У вас: {{ itemCount(o.itemId) }} | Награда: 🪙 {{ fmt(o.rewardGold) }}
-                  <span v-if="o.rewardDiamonds > 0">+ <img :src="iconStone" class="gem-inline" alt="" /> {{ o.rewardDiamonds }}</span>
-                  | Время: {{ fmtTime(o.timeLeft) }}
-                </div>
-              </div>
-              <div class="actions">
-                <button class="buy" :disabled="itemCount(o.itemId) <= 0" @click="game.completeOrder(o.id)">
-                  Выполнить
-                </button>
-                <button class="ghost" @click="game.cancelOrder(o.id)">Отказать</button>
-              </div>
-            </li>
-          </ul>
-          <button class="big" @click="game.spawnOrder()">Позвать героя</button>
-        </section>
-
-        <section v-if="tab === 'shop'" class="panel">
-          <h2>Магазин</h2>
-          <p class="muted">Бустеры покупаются за алмазы <img :src="iconStone" class="gem-inline" alt="" /></p>
-          <ul class="cards">
-            <li class="card">
-              <div>
-                <div class="card-title">x2 Золото (60с)</div>
-                <div class="muted">Цена: <img :src="iconStone" class="gem-inline" alt="" /> 5</div>
-              </div>
-              <button class="buy" :disabled="game.diamonds < 5" @click="game.buyBooster('goldx2')">Купить</button>
-            </li>
-            <li class="card">
-              <div>
-                <div class="card-title">Авто-клик (60с)</div>
-                <div class="muted">Цена: <img :src="iconStone" class="gem-inline" alt="" /> 10</div>
-              </div>
-              <button class="buy" :disabled="game.diamonds < 10" @click="game.buyBooster('auto')">Купить</button>
-            </li>
-            <li class="card">
-              <div>
-                <div class="card-title">Lucky Chance (+2% крит навсегда)</div>
-                <div class="muted">Цена: <img :src="iconStone" class="gem-inline" alt="" /> 8</div>
-              </div>
-              <button class="buy" :disabled="game.diamonds < 8" @click="game.buyBooster('lucky')">Купить</button>
-            </li>
-            <li class="card">
-              <div>
-                <div class="card-title">x2 Скорость (+5 пасс. навсегда)</div>
-                <div class="muted">Цена: <img :src="iconStone" class="gem-inline" alt="" /> 6</div>
-              </div>
-              <button class="buy" :disabled="game.diamonds < 6" @click="game.buyBooster('speed')">Купить</button>
-            </li>
-          </ul>
-          <h3>Rewarded Ads</h3>
-          <div class="row">
-            <button class="big" @click="game.watchAd('gold')">📺 Реклама → Золото</button>
-            <button class="big" @click="game.watchAd('chest')">📺 Реклама → Сундук</button>
-            <button class="big" @click="game.watchAd('diamonds')">📺 Реклама → <img :src="iconStone" class="gem-inline" alt="" /> 5</button>
-          </div>
-        </section>
-
-        <section v-if="tab === 'achievements'" class="panel">
-          <h2>События / Достижения</h2>
-          <ul class="cards">
-            <li v-for="a in game.achievements" :key="a.id" class="card">
-              <div>
-                <div class="card-title">{{ a.name }} <span v-if="a.done">✅</span></div>
-                <div class="muted">Цель: {{ a.target }} | Награда: <img :src="iconStone" class="gem-inline" alt="" /> 5</div>
-              </div>
-            </li>
-          </ul>
-        </section>
-
-        <section v-if="tab === 'map'" class="panel">
-          <h2>Карта миров</h2>
-          <ul class="cards">
-            <li v-for="r in game.regions" :key="r.id" class="card">
-              <div>
-                <div class="card-title">
-                  {{ r.name }}
-                  <span v-if="r.unlocked" class="lvl">Открыт (x{{ r.bonus }})</span>
-                </div>
-                <div class="muted">Стоимость: {{ fmt(r.unlockCost) }}</div>
-              </div>
-              <button v-if="!r.unlocked" class="buy" :disabled="game.gold < r.unlockCost" @click="game.unlockRegion(r.id)">
-                Открыть
-              </button>
-            </li>
-          </ul>
-        </section>
-
-        <section v-if="tab === 'chests'" class="panel">
-          <h2>Сундуки</h2>
-          <ul class="cards">
-            <li v-for="c in game.chests" :key="c.id" class="card">
-              <div>
-                <div class="card-title">{{ c.type }}</div>
-                <div class="muted">В наличии: {{ c.count }}</div>
-              </div>
-              <button class="buy" :disabled="c.count <= 0" @click="game.openChest(c.type)">Открыть</button>
-            </li>
-          </ul>
-        </section>
-
-        <section v-if="tab === 'settings'" class="panel">
-          <h2>Настройки</h2>
-          <label><input type="checkbox" v-model="game.settings.sound" /> Звук</label>
-          <label><input type="checkbox" v-model="game.settings.music" /> Музыка</label>
-          <label><input type="checkbox" v-model="game.settings.vibro" /> Вибрация</label>
-          <label>
-            Язык:
-            <select v-model="game.settings.lang">
-              <option>RU</option>
-              <option>EN</option>
-            </select>
-          </label>
-          <div class="row">
-            <button class="big" @click="game.save()">Сохранить вручную</button>
-            <button class="ghost" @click="game.resetAll()">Сбросить прогресс</button>
-          </div>
-        </section>
-      </main>
 
       <!-- Modals -->
       <UpgradesModal :open="showUpgrades" @close="closeUpgrades" />
@@ -700,15 +497,6 @@ const forgeProgress = computed(() => game.forgeXpProgress)
           <span class="nav-label">Кузница</span>
         </button>
       </nav>
-
-      <!-- Dropdown menu -->
-      <div v-if="menuOpen" class="dropdown" @click.self="menuOpen = false">
-        <div class="dropdown-body">
-          <button @click="tab = 'map'; menuOpen = false">🗺 Карта</button>
-          <button @click="showAchievements = true; menuOpen = false">🏆 Достижения</button>
-          <button @click="showSettings = true; menuOpen = false">⚙️ Настройки</button>
-        </div>
-      </div>
 
       </div>
     </div>

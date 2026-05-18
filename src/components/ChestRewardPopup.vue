@@ -4,6 +4,7 @@ import iconCoin from '@/assets/coin.png'
 import iconStone from '@/assets/stone.png'
 import { useGameStore } from '@/stores/game'
 import { showRewarded } from '@/ads/ads'
+import { fmt } from '@/utils/fmt'
 
 const props = defineProps<{
   chestName: string
@@ -15,18 +16,6 @@ const emit = defineEmits<{ close: [] }>()
 
 const game = useGameStore()
 const doubled = ref(false)
-
-function fmt(n: number): string {
-  if (n < 1000) return Math.floor(n).toString()
-  const units = ['', 'K', 'M', 'B']
-  let i = 0
-  let v = n
-  while (v >= 1000 && i < units.length - 1) {
-    v /= 1000
-    i++
-  }
-  return v.toFixed(v < 10 ? 1 : 0) + units[i]
-}
 
 function doubleReward() {
   if (doubled.value) return

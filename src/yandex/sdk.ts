@@ -21,14 +21,30 @@ export interface YsdkAdv {
   showRewardedVideo(opts: { callbacks?: YsdkRewardedCallbacks }): void
 }
 
+export interface YsdkEnvironment {
+  app?: { id?: string }
+  browser?: { lang?: string }
+  i18n: { lang: string; tld: string }
+  payload?: string
+}
+
+export interface YsdkFeedback {
+  canReview(): Promise<{ value: boolean; reason?: string }>
+  requestReview(): Promise<{ feedbackSent: boolean }>
+}
+
 export interface Ysdk {
   adv: YsdkAdv
+  environment: YsdkEnvironment
+  feedback?: YsdkFeedback
   features?: {
     LoadingAPI?: { ready: () => void }
+    GameplayAPI?: { start: () => void; stop: () => void }
   }
 }
 
 let ysdk: Ysdk | null = null
+let lang: string = 'ru'
 let initPromise: Promise<Ysdk | null> | null = null
 
 /**
@@ -64,14 +80,9 @@ export function initYandex(): Promise<Ysdk | null> {
     return YaGames.init()
       .then((sdk: Ysdk) => {
         ysdk = sdk
-        console.info('[yandex sdk] initialized', sdk)
-        // Tell the platform the game is ready — hides the platform loading screen.
-        // Wrapped because not every SDK version exposes LoadingAPI.
-        try {
-          sdk.features?.LoadingAPI?.ready()
-        } catch (err) {
-          console.warn('[yandex sdk] LoadingAPI.ready() failed', err)
-        }
+        const detected = sdk.environment?.i18n?.lang
+        if (detected) lang = detected
+        console.info('[yandex sdk] initialized', { lang, env: sdk.environment })
         return sdk
       })
       .catch((err: unknown) => {
@@ -90,4 +101,77 @@ export function getYsdk(): Ysdk | null {
 
 export function isYsdkReady(): boolean {
   return ysdk !== null
+}
+
+/** Язык игрока, полученный из ysdk.environment.i18n.lang. Дефолт — 'ru' до инициализации/в dev. */
+export function getLang(): string {
+  return lang
+}
+
+// Reference-counted gameplay state. Yandex's GameplayAPI must see strictly
+// alternating start/stop calls — if we naively call start/stop from each
+// source (modal, ad, visibility) they overlap and Yandex ends up "stuck".
+// Instead we track pause depth and only emit start when ALL pause sources
+// have resumed.
+
+let gameplayInitDone = false
+let gameplayPauseDepth = 0
+let gameplayLastSent: 'start' | 'stop' | null = null
+
+function syncGameplay() {
+  if (!gameplayInitDone) return
+  const want: 'start' | 'stop' = gameplayPauseDepth === 0 ? 'start' : 'stop'
+  if (want === gameplayLastSent) return
+  gameplayLastSent = want
+  try {
+    if (want === 'start') ysdk?.features?.GameplayAPI?.start()
+    else ysdk?.features?.GameplayAPI?.stop()
+  } catch (err) {
+    console.warn('[yandex sdk] GameplayAPI.' + want + '() failed', err)
+  }
+}
+
+/** Call ONCE when the game is ready to start. Subsequent calls are no-ops. */
+export function gameplayInit(): void {
+  if (gameplayInitDone) return
+  gameplayInitDone = true
+  syncGameplay()
+}
+
+/** Reference-counted. Push for every pause source (modal open, ad shown, tab hidden). */
+export function gameplayPause(): void {
+  gameplayPauseDepth++
+  syncGameplay()
+}
+
+/** Reference-counted. Pop when a pause source resolves (modal closed, ad closed, tab visible). */
+export function gameplayResume(): void {
+  if (gameplayPauseDepth === 0) return
+  gameplayPauseDepth--
+  syncGameplay()
+}
+
+let reviewRequested = false
+
+/**
+ * Запрос оценки игры в Яндекс Играх. Окно покажется только если canReview()
+ * вернул true (Яндекс сам решает по своим лимитам). Безопасно дёргать
+ * несколько раз — внутренний флаг блокирует повторы за сессию.
+ */
+export async function tryRequestReview(): Promise<void> {
+  if (reviewRequested) return
+  const sdk = getYsdk()
+  if (!sdk?.feedback) return
+  reviewRequested = true
+  try {
+    const { value, reason } = await sdk.feedback.canReview()
+    if (!value) {
+      console.info('[yandex sdk] review unavailable:', reason)
+      return
+    }
+    const { feedbackSent } = await sdk.feedback.requestReview()
+    console.info('[yandex sdk] review sent:', feedbackSent)
+  } catch (err) {
+    console.warn('[yandex sdk] requestReview failed', err)
+  }
 }

@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import GameModal from './GameModal.vue'
 import { useGameStore, type Upgrade, FORGE_TIERS } from '@/stores/game'
+import { fmt } from '@/utils/fmt'
 import iconCoin from '@/assets/coin.png'
 import iconAnvil from '@/assets/nako.png'
 
@@ -46,18 +47,6 @@ const cheapest = computed<Upgrade | undefined>(() => {
   }
   return best
 })
-
-function fmt(n: number): string {
-  if (n < 1000) return Math.floor(n).toString()
-  const units = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi']
-  let i = 0
-  let v = n
-  while (v >= 1000 && i < units.length - 1) {
-    v /= 1000
-    i++
-  }
-  return v.toFixed(v < 10 ? 2 : 1) + units[i]
-}
 
 function buy(u: Upgrade) {
   if (!canBuy(u)) return

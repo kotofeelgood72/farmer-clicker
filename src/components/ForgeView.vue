@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useGameStore } from '@/stores/game'
+import { fmt } from '@/utils/fmt'
 import iconCoin from '@/assets/coin.png'
 import level1 from '@/assets/level/1.png'
 import level2 from '@/assets/level/2.png'
@@ -38,18 +39,6 @@ function isUnlocked(lvl: number) {
 }
 function upgradeCost(): number {
   return Math.floor(25000 * Math.pow(1.4, Math.max(0, currentLevel.value - 1)))
-}
-
-function fmt(n: number): string {
-  if (n < 1000) return Math.floor(n).toString()
-  const units = ['', 'K', 'M', 'B', 'T']
-  let i = 0
-  let v = n
-  while (v >= 1000 && i < units.length - 1) {
-    v /= 1000
-    i++
-  }
-  return v.toFixed(v < 10 ? 2 : 1) + units[i]
 }
 
 function doUpgrade() {

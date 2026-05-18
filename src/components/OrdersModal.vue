@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import GameModal from './GameModal.vue'
 import { useGameStore, HEROES } from '@/stores/game'
 import { showRewarded } from '@/ads/ads'
+import { fmt } from '@/utils/fmt'
 import iconCoin from '@/assets/coin.png'
 import iconStar from '@/assets/nav-item-3.png'
 import iconStone from '@/assets/stone.png'
@@ -39,18 +40,6 @@ onMounted(() => {
   }, 1000)
 })
 onBeforeUnmount(() => clearInterval(timer))
-
-function fmt(n: number): string {
-  if (n < 1000) return Math.floor(n).toString()
-  const units = ['', 'K', 'M', 'B', 'T']
-  let i = 0
-  let v = n
-  while (v >= 1000 && i < units.length - 1) {
-    v /= 1000
-    i++
-  }
-  return v.toFixed(v < 10 ? 2 : 1) + units[i]
-}
 
 function itemName(id: string) {
   return game.items.find((x) => x.id === id)?.name ?? '?'
