@@ -1,0 +1,627 @@
+<script setup lang="ts">
+import { computed, onUnmounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import gsap from 'gsap'
+
+import PageHeader from '@/components/PageHeader.vue'
+import MatchOverlay from '@/components/MatchOverlay.vue'
+import IconCloseX from '@/components/icons/IconCloseX.vue'
+import IconBolt from '~icons/solar/bolt-bold'
+import IconVerified from '~icons/solar/verified-check-bold'
+import IconFire from '~icons/solar/fire-bold'
+import heartImg from '@/assets/ui/hearth.png'
+import { GIRLS, type GirlProfile } from '@/data/girls'
+import { useChatHistory } from '@/composables/useChatHistory'
+
+const router = useRouter()
+const { touchChat } = useChatHistory()
+
+const characters = ref<GirlProfile[]>([...GIRLS])
+
+const index = ref(0)
+const total = ref(20) // total session swipes
+
+const currentCard = ref<HTMLDivElement | null>(null)
+const nextCard = ref<HTMLDivElement | null>(null)
+const dragX = ref(0)
+const dragging = ref(false)
+const animating = ref(false)
+
+const current = computed(() => characters.value[index.value % characters.value.length])
+const next = computed(() => characters.value[(index.value + 1) % characters.value.length])
+
+const matchVisible = ref(false)
+const matchedCharacter = ref<GirlProfile | null>(null)
+
+function cardImageStyle(girl: GirlProfile) {
+  if (girl.image) {
+    return {
+      backgroundImage: `url(${girl.image})`,
+      backgroundColor: girl.color,
+    }
+  }
+  return { background: girl.color }
+}
+
+// likeOpacity / nopeOpacity derived from dragX
+const SWIPE_FADE_DISTANCE = 120
+
+const likeOpacity = computed(() =>
+  Math.max(0, Math.min(1, dragX.value / SWIPE_FADE_DISTANCE)),
+)
+const nopeOpacity = computed(() =>
+  Math.max(0, Math.min(1, -dragX.value / SWIPE_FADE_DISTANCE)),
+)
+const likeScale = computed(() => 0.75 + likeOpacity.value * 0.35)
+const nopeScale = computed(() => 0.75 + nopeOpacity.value * 0.35)
+
+let startX = 0
+let startY = 0
+let activePointerId: number | null = null
+
+function onPointerDown(e: PointerEvent) {
+  if (animating.value || !currentCard.value) return
+  activePointerId = e.pointerId
+  startX = e.clientX
+  startY = e.clientY
+  dragging.value = true
+  currentCard.value.setPointerCapture(e.pointerId)
+  gsap.killTweensOf(currentCard.value)
+}
+
+function onPointerMove(e: PointerEvent) {
+  if (!dragging.value || e.pointerId !== activePointerId || !currentCard.value) return
+  const dx = e.clientX - startX
+  const dy = e.clientY - startY
+  dragX.value = dx
+  const rot = dx * 0.06
+  gsap.set(currentCard.value, { x: dx, y: dy * 0.2, rotation: rot })
+}
+
+function onPointerUp(e: PointerEvent) {
+  if (!dragging.value || e.pointerId !== activePointerId) return
+  dragging.value = false
+  activePointerId = null
+
+  const threshold = 110
+  if (dragX.value > threshold) flyOff('right')
+  else if (dragX.value < -threshold) flyOff('left')
+  else springBack()
+}
+
+function springBack() {
+  if (!currentCard.value) return
+  animating.value = true
+  gsap.to(currentCard.value, {
+    x: 0,
+    y: 0,
+    rotation: 0,
+    duration: 0.35,
+    ease: 'back.out(1.6)',
+    onUpdate: () => {
+      dragX.value = 0
+    },
+    onComplete: () => {
+      animating.value = false
+      dragX.value = 0
+    },
+  })
+}
+
+function flyOff(direction: 'left' | 'right') {
+  if (!currentCard.value) return
+  animating.value = true
+  const targetX = direction === 'right' ? 600 : -600
+  const rot = direction === 'right' ? 25 : -25
+
+  // animate current card off-screen
+  gsap.to(currentCard.value, {
+    x: targetX,
+    rotation: rot,
+    duration: 0.38,
+    ease: 'power2.in',
+  })
+
+  // simultaneously promote the next card to the front
+  if (nextCard.value) {
+    gsap.fromTo(
+      nextCard.value,
+      { scale: 0.96, y: 8, opacity: 0.7 },
+      {
+        scale: 1,
+        y: 0,
+        opacity: 1,
+        duration: 0.38,
+        ease: 'power2.out',
+        onComplete: () => advance(direction),
+      },
+    )
+  } else {
+    gsap.delayedCall(0.38, () => advance(direction))
+  }
+}
+
+function advance(direction: 'left' | 'right') {
+  const liked = current.value
+  index.value++
+  dragX.value = 0
+  animating.value = false
+  // eslint-disable-next-line no-console
+  console.info('[swipe]', direction === 'right' ? 'like' : 'skip', liked?.name)
+  if (direction === 'right' && liked) {
+    touchChat(liked.id, { preview: 'Это совпадение!' })
+    matchedCharacter.value = liked
+    matchVisible.value = true
+  }
+}
+
+function onLike() {
+  if (animating.value) return
+  flyOff('right')
+}
+
+function onSkip() {
+  if (animating.value) return
+  flyOff('left')
+}
+
+function onBoost() {
+  if (animating.value) return
+  if (!currentCard.value) return
+  animating.value = true
+  gsap.to(currentCard.value, {
+    scale: 1.06,
+    duration: 0.18,
+    yoyo: true,
+    repeat: 1,
+    ease: 'power2.out',
+    onComplete: () => {
+      animating.value = false
+    },
+  })
+}
+
+function onBack() {
+  void router.push('/main')
+}
+
+function onMatchMessage() {
+  const id = matchedCharacter.value?.id
+  matchVisible.value = false
+  if (id != null) void router.push(`/chat/${id}`)
+}
+
+function onMatchContinue() {
+  matchVisible.value = false
+}
+
+onUnmounted(() => {
+  if (currentCard.value) gsap.killTweensOf(currentCard.value)
+})
+</script>
+
+<template>
+  <div class="swipe" :class="{ 'swipe--match': matchVisible }">
+    <PageHeader title="Знакомства" @back="onBack" />
+
+    <!-- card stack -->
+    <div class="stack" :class="{ 'stack--locked': matchVisible }">
+      <!-- next card (behind) -->
+      <div v-if="next" ref="nextCard" class="card card--next" :key="`next-${next.id}-${index}`">
+        <div class="card-image" :style="cardImageStyle(next)">
+          <div class="rating-pill">
+            <IconFire v-for="n in next.rating" :key="n" class="rating-fire" />
+          </div>
+          <span v-if="!next.image" class="card-letter">{{ next.name.charAt(0) }}</span>
+          <div class="info-overlay">
+            <div class="info-head">
+              <div class="card-name">
+                {{ next.name }}, {{ next.age }}
+                <IconVerified class="verified" />
+              </div>
+            </div>
+            <p class="card-bio">{{ next.bio }}</p>
+            <div class="card-tags">
+              <span v-for="t in next.tags" :key="t" class="tag">{{ t }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- current card (front, draggable) -->
+      <div
+        v-if="current"
+        ref="currentCard"
+        class="card card--current"
+        :key="`current-${current.id}-${index}`"
+        @pointerdown="onPointerDown"
+        @pointermove="onPointerMove"
+        @pointerup="onPointerUp"
+        @pointercancel="onPointerUp"
+      >
+        <div class="card-image" :style="cardImageStyle(current)">
+          <div class="rating-pill">
+            <IconFire v-for="n in current.rating" :key="n" class="rating-fire" />
+          </div>
+          <span v-if="!current.image" class="card-letter">{{ current.name.charAt(0) }}</span>
+          <button
+            class="skip-pill"
+            :style="{
+              opacity: 1 - nopeOpacity,
+              pointerEvents: nopeOpacity > 0 ? 'none' : 'auto',
+            }"
+            @pointerdown.stop
+            @click.stop="onSkip"
+          >
+            Пропустить
+          </button>
+          <div class="info-overlay">
+            <div class="info-head">
+              <div class="card-name">
+                {{ current.name }}, {{ current.age }}
+                <IconVerified class="verified" />
+              </div>
+            </div>
+            <p class="card-bio">{{ current.bio }}</p>
+            <div class="card-tags">
+              <span v-for="t in current.tags" :key="t" class="tag">{{ t }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- swipe stamps (Tinder-style) -->
+        <div class="overlay overlay--like" :style="{ opacity: likeOpacity }">
+          <span
+            class="stamp stamp--like"
+            :style="{ transform: `rotate(-18deg) scale(${likeScale})` }"
+          >
+            НРАВИТСЯ
+          </span>
+        </div>
+        <div class="overlay overlay--nope" :style="{ opacity: nopeOpacity }">
+          <span
+            class="stamp stamp--nope"
+            :style="{ transform: `rotate(18deg) scale(${nopeScale})` }"
+          >
+            НЕТ
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- action buttons -->
+    <div class="actions" :class="{ 'actions--locked': matchVisible }">
+      <button class="action action--skip" :disabled="animating" @click="onSkip">
+        <IconCloseX class="action-icon action-icon--close" />
+      </button>
+      <button class="action action--like" :disabled="animating" @click="onLike">
+        <img :src="heartImg" alt="лайк" class="action-img" />
+      </button>
+      <button class="action action--boost" :disabled="animating" @click="onBoost">
+        <IconBolt class="action-icon" />
+      </button>
+    </div>
+
+    <MatchOverlay
+      :show="matchVisible"
+      :their-name="matchedCharacter?.name || ''"
+      :their-color="matchedCharacter?.color"
+      :their-letter="matchedCharacter?.name.charAt(0)"
+      :their-image="matchedCharacter?.image"
+      my-color="#4a3550"
+      my-letter="Я"
+      @message="onMatchMessage"
+      @close="onMatchContinue"
+    />
+  </div>
+</template>
+
+<style scoped>
+.swipe {
+  width: 100%;
+  height: 100%;
+  background: #0a0a14;
+  color: #fff;
+  font-family:
+    'Inter',
+    system-ui,
+    -apple-system,
+    sans-serif;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.swipe > .stack,
+.swipe > .actions {
+  margin-left: 16px;
+  margin-right: 16px;
+}
+
+.swipe > .stack {
+  margin-top: 16px;
+  margin-bottom: 12px;
+}
+.swipe > .actions {
+  margin-bottom: 16px;
+}
+
+/* card stack */
+.stack {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.swipe--match {
+  pointer-events: none;
+}
+
+.stack--locked,
+.actions--locked {
+  pointer-events: none;
+}
+
+.card {
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  overflow: hidden;
+  background: #16121e;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  touch-action: none;
+  user-select: none;
+}
+
+.card--current {
+  z-index: 2;
+  cursor: grab;
+}
+
+.card--current:active {
+  cursor: grabbing;
+}
+
+.card--next {
+  z-index: 1;
+  transform: scale(0.96) translateY(8px);
+  opacity: 0.7;
+  filter: blur(0.3px);
+}
+
+.card-image {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-size: cover;
+  background-position: center top;
+  min-height: 100%;
+}
+
+.rating-pill {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  display: flex;
+  gap: 2px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.rating-fire {
+  width: 14px;
+  height: 14px;
+  color: #ff6b2c;
+  flex-shrink: 0;
+}
+
+.info-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  padding: 48px 16px 16px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(0, 0, 0, 0.55) 35%,
+    rgba(0, 0, 0, 0.88) 100%
+  );
+  pointer-events: none;
+}
+
+.card-letter {
+  font-size: 96px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.25);
+  text-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.skip-pill {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  outline: none;
+  color: #fff;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  z-index: 3;
+}
+
+.info-head {
+  margin-bottom: 6px;
+}
+
+.card-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.verified {
+  width: 16px;
+  height: 16px;
+  color: #5fb8ff;
+}
+
+.card-bio {
+  font-size: 13px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.75);
+  margin: 0 0 10px;
+}
+
+.card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(40, 40, 48, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+}
+
+/* swipe stamps */
+.overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.overlay--like {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 28px 24px;
+}
+
+.overlay--nope {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 28px 24px;
+}
+
+.stamp {
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  line-height: 1;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border: 5px solid currentColor;
+  border-radius: 6px;
+  background: transparent;
+  user-select: none;
+  transform-origin: center;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+.stamp--like {
+  color: #2ee06f;
+  font-size: 34px;
+  letter-spacing: 1px;
+}
+
+.stamp--nope {
+  color: #ff4458;
+}
+
+/* action buttons */
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin-bottom: 12px;
+}
+
+.action {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  outline: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: #fff;
+  color: #1a1a1a;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.action:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.action:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.action-icon {
+  width: 26px;
+  height: 26px;
+}
+
+.action-img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  -webkit-user-drag: none;
+}
+
+.action--skip {
+  background: #fff;
+  color: #111;
+  border: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.action-icon--close {
+  width: 22px;
+  height: 22px;
+}
+
+.action--like {
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(255, 61, 138, 0.35);
+}
+
+.action--boost {
+  background: linear-gradient(135deg, #b14bff 0%, #5b3df0 100%);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(91, 61, 240, 0.4);
+}
+</style>

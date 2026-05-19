@@ -1,55 +1,13 @@
-import bgmUrl from '@/assets/audio/Blacksmith Village Theme.mp3'
-import hammerUrl from '@/assets/audio/hammer_click.mp3'
-import criticalUrl from '@/assets/audio/critical.mp3'
-import openUrl from '@/assets/audio/open.mp3'
-import orderUrl from '@/assets/audio/order.mp3'
-import uiClickUrl from '@/assets/audio/ui_click.mp3'
+export type SfxName = string
 
-// Yandex Games audio requirements:
-//   1. Audio must pause when the tab is hidden.
-//   2. The game must NOT surface in OS-level media controls
-//      (Chrome global media panel, Android notification, lock-screen player).
-//
-// HTML5 <audio>/<video> elements register with the browser's Media Session
-// API automatically, so even a single Audio() in the page triggers the
-// playback player. To satisfy both requirements we route 100% of sound
-// (SFX + BGM) through Web Audio API — no <audio> elements created at all —
-// and additionally clear navigator.mediaSession.
+const SFX_URLS: Record<SfxName, string> = {}
 
-export type SfxName = 'hammer' | 'critical' | 'open' | 'order' | 'ui'
-
-const SFX_URLS: Record<SfxName, string> = {
-  hammer: hammerUrl,
-  critical: criticalUrl,
-  open: openUrl,
-  order: orderUrl,
-  ui: uiClickUrl,
-}
-
-const SFX_VOLUMES: Record<SfxName, number> = {
-  hammer: 0.55,
-  critical: 0.75,
-  open: 0.8,
-  order: 0.7,
-  ui: 0.45,
-}
+const SFX_VOLUMES: Record<SfxName, number> = {}
 
 // Minimum gap between repeated plays of the same SFX (ms).
-const MIN_INTERVAL: Record<SfxName, number> = {
-  hammer: 0,
-  critical: 0,
-  open: 0,
-  order: 1200,
-  ui: 60,
-}
+const MIN_INTERVAL: Record<SfxName, number> = {}
 
-const lastPlayedAt: Record<SfxName, number> = {
-  hammer: 0,
-  critical: 0,
-  open: 0,
-  order: 0,
-  ui: 0,
-}
+const lastPlayedAt: Record<SfxName, number> = {}
 
 let sfxEnabled = true
 let musicEnabled = true
@@ -61,6 +19,10 @@ let masterSfxGain: GainNode | null = null
 
 const sfxBuffers: Partial<Record<SfxName, AudioBuffer>> = {}
 const sfxLoading: Partial<Record<SfxName, Promise<void>>> = {}
+
+// Set to a URL (e.g. `import bgmUrl from '@/assets/audio/theme.mp3'`) to
+// enable background music. Left null in the template.
+const bgmUrl: string | null = null
 
 let bgmBuffer: AudioBuffer | null = null
 let bgmLoading: Promise<void> | null = null
@@ -114,8 +76,10 @@ async function loadSfxBuffer(name: SfxName): Promise<void> {
   if (sfxBuffers[name]) return
   const ctx = getCtx()
   if (!ctx) return
+  const url = SFX_URLS[name]
+  if (!url) return
   if (!sfxLoading[name]) {
-    sfxLoading[name] = fetch(SFX_URLS[name])
+    sfxLoading[name] = fetch(url)
       .then((r) => r.arrayBuffer())
       .then((buf) => ctx.decodeAudioData(buf))
       .then((decoded) => {
@@ -129,7 +93,7 @@ async function loadSfxBuffer(name: SfxName): Promise<void> {
 }
 
 async function loadBgmBuffer(): Promise<void> {
-  if (bgmBuffer) return
+  if (bgmBuffer || !bgmUrl) return
   const ctx = getCtx()
   if (!ctx) return
   if (!bgmLoading) {
@@ -193,24 +157,22 @@ function bindVisibility() {
 export function preloadAudio() {
   suppressMediaSession()
   bindVisibility()
-  // Eagerly decode SFX so the first click has zero latency.
   for (const k of Object.keys(SFX_URLS) as SfxName[]) {
     void loadSfxBuffer(k)
   }
-  void loadBgmBuffer()
+  if (bgmUrl) void loadBgmBuffer()
 }
 
 export function playSfx(name: SfxName) {
   if (!sfxEnabled) return
   if (document.hidden) return
   const now = performance.now()
-  const gap = MIN_INTERVAL[name]
-  if (gap > 0 && now - lastPlayedAt[name] < gap) return
+  const gap = MIN_INTERVAL[name] ?? 0
+  if (gap > 0 && now - (lastPlayedAt[name] ?? 0) < gap) return
   const ctx = getCtx()
   if (!ctx || !masterSfxGain) return
   const buffer = sfxBuffers[name]
   if (!buffer) {
-    // First time — kick off load, will be ready next time.
     void loadSfxBuffer(name)
     return
   }
@@ -218,10 +180,9 @@ export function playSfx(name: SfxName) {
   const src = ctx.createBufferSource()
   src.buffer = buffer
   const gain = ctx.createGain()
-  gain.gain.value = SFX_VOLUMES[name]
+  gain.gain.value = SFX_VOLUMES[name] ?? 1
   src.connect(gain).connect(masterSfxGain)
   src.start(0)
-  // Auto-clean once finished.
   src.onended = () => {
     try {
       src.disconnect()
@@ -232,7 +193,7 @@ export function playSfx(name: SfxName) {
 
 export async function startMusic() {
   bgmShouldPlay = true
-  if (!musicEnabled) return
+  if (!musicEnabled || !bgmUrl) return
   if (document.hidden) return
   const ctx = getCtx()
   if (!ctx) return
@@ -273,17 +234,11 @@ export function setMusicVolume(v: number) {
 
 export function unlockAudioOnGesture() {
   if (unlocked) return
-  // Try an optimistic resume immediately — works on platforms with autoplay
-  // permission (Yandex Games SDK iframe, sites with prior engagement, or
-  // localhost when the user has whitelisted sound in chrome://settings).
   const ctx = getCtx()
   if (ctx && ctx.state === 'suspended') {
-    ctx.resume().catch(() => {
-      // Blocked — wait for a real user gesture below.
-    })
+    ctx.resume().catch(() => {})
   }
   if (musicEnabled) void startMusic()
-  // Fallback: any user input releases the autoplay lock.
   const events = [
     'pointerdown',
     'pointerup',
