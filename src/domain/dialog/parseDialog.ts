@@ -1,76 +1,163 @@
-import type { DialogNode, GirlDialog } from './types'
+import type { DialogChoice, DialogNode, GirlDialog } from './types'
 
-function parseMessage(block: string): string {
-  const match = block.match(/^[^:]+:\s*\n([\s\S]*?)(?=\nОтвет 1:)/)
-  if (!match) return ''
-  let text = match[1]!.trim()
-  if (text.startsWith('"') && text.endsWith('"')) {
-    text = text.slice(1, -1)
+/**
+ * Dialog markdown parser. Supports two interchangeable styles:
+ *
+ *  1) Linear (one player reply per girl message). Matches the output of
+ *     `src/materials/prompt.md`:
+ *
+ *        Девушка:
+ *        "сообщение"
+ *
+ *        Игрок:
+ *        "ответ"
+ *
+ *  2) Branching (two alternative replies per girl message):
+ *
+ *        Алина:
+ *        "сообщение"
+ *
+ *        Ответ 1:
+ *        "вариант 1"
+ *
+ *        Ответ 2:
+ *        "вариант 2"
+ *
+ *  Both styles can have optional metadata after the replies:
+ *
+ *        Affection:
+ *        +5
+ *
+ *        Emotion:
+ *        flirty
+ *
+ *  The speaker label for the girl can be anything ("Девушка", "Алина", "Она", ...)
+ *  except the reserved keywords: Игрок, Ответ 1, Ответ 2, Affection, Emotion.
+ */
+
+type EntryType = 'girl' | 'player' | 'answer1' | 'answer2' | 'affection' | 'emotion'
+
+interface Entry {
+  type: EntryType
+  speaker: string
+  text: string
+}
+
+const DEFAULT_LINEAR_AFFECTION = 3
+const DEFAULT_BRANCHING_AFFECTION = 3
+const DEFAULT_EMOTION = 'neutral'
+
+const RESERVED: Array<{ rx: RegExp; type: EntryType }> = [
+  { rx: /^игрок$/i, type: 'player' },
+  { rx: /^ответ\s*1$/i, type: 'answer1' },
+  { rx: /^ответ\s*2$/i, type: 'answer2' },
+  { rx: /^affection$/i, type: 'affection' },
+  { rx: /^emotion$/i, type: 'emotion' },
+]
+
+function classify(header: string): EntryType {
+  const trimmed = header.trim()
+  for (const r of RESERVED) {
+    if (r.rx.test(trimmed)) return r.type
   }
-  return text.trim()
+  return 'girl'
 }
 
-function parseAnswer(block: string, index: 1 | 2): string {
-  const match = block.match(
-    new RegExp(`Ответ ${index}:\\s*\\n"([\\s\\S]*?)"(?=\\n\\n|$)`),
-  )
-  return match ? match[1]!.replace(/\s*\n\s*/g, ' ').trim() : ''
-}
-
-function parseBlock(block: string, id: number): DialogNode | null {
-  const trimmed = block.trim()
-  if (!trimmed) return null
-
-  const speakerMatch = trimmed.match(/^([^:]+):/)
-  const speaker = speakerMatch?.[1]?.trim() ?? 'Она'
-  const text = parseMessage(trimmed)
-  const choice1 = parseAnswer(trimmed, 1)
-  const choice2 = parseAnswer(trimmed, 2)
-
-  if (!text || !choice1 || !choice2) return null
-
-  const affectionMatch = trimmed.match(/Affection:\s*\n\+(\d+)/i)
-  const emotionMatch = trimmed.match(/Emotion:\s*\n(\w+)/i)
-
-  return {
-    id,
-    speaker,
-    text,
-    choices: [{ text: choice1 }, { text: choice2 }],
-    affection: affectionMatch ? Number(affectionMatch[1]) : 0,
-    emotion: emotionMatch?.[1] ?? 'neutral',
+function stripQuotes(s: string): string {
+  const t = s.trim()
+  if (t.length >= 2 && t.startsWith('"') && t.endsWith('"')) {
+    return t.slice(1, -1).trim()
   }
+  return t
 }
 
-function splitDialogBlocks(raw: string): string[] {
-  const lines = raw.replace(/\r\n/g, '\n').trim().split('\n')
-  const blocks: string[] = []
-  let current: string[] = []
+function tokenize(raw: string): Entry[] {
+  const text = raw.replace(/\r\n/g, '\n').trim()
+  const headerRx = /^([^:\n]{1,40}):[ \t]*$/gm
+  const headers: { speaker: string; start: number; end: number }[] = []
 
-  const isSpeakerLine = (line: string) =>
-    /^[^:]+:\s*$/.test(line) && !/^(Ответ \d|Affection|Emotion):/i.test(line)
+  let m: RegExpExecArray | null
+  while ((m = headerRx.exec(text)) !== null) {
+    headers.push({ speaker: m[1]!.trim(), start: m.index, end: m.index + m[0]!.length })
+  }
 
-  for (const line of lines) {
-    if (isSpeakerLine(line) && current.length > 0) {
-      blocks.push(current.join('\n'))
-      current = [line]
-    } else {
-      current.push(line)
+  const entries: Entry[] = []
+  for (let i = 0; i < headers.length; i++) {
+    const h = headers[i]!
+    const next = headers[i + 1]
+    const content = text.slice(h.end, next?.start ?? text.length).trim()
+    if (!content) continue
+    entries.push({ type: classify(h.speaker), speaker: h.speaker, text: stripQuotes(content) })
+  }
+  return entries
+}
+
+function buildNodes(entries: Entry[]): DialogNode[] {
+  const nodes: DialogNode[] = []
+  let i = 0
+
+  while (i < entries.length) {
+    const e = entries[i]!
+    if (e.type !== 'girl') {
+      i++
+      continue
     }
+
+    const choices: DialogChoice[] = []
+    let affection: number | null = null
+    let emotion = DEFAULT_EMOTION
+    let hasBranching = false
+    let pendingPlayerLines: string[] = []
+
+    const flushPendingPlayer = () => {
+      if (pendingPlayerLines.length > 0) {
+        choices.push({ text: pendingPlayerLines.join('\n') })
+        pendingPlayerLines = []
+      }
+    }
+
+    let j = i + 1
+    while (j < entries.length && entries[j]!.type !== 'girl') {
+      const nxt = entries[j]!
+      if (nxt.type === 'player') {
+        // Merge consecutive "Игрок:" entries into a single reply,
+        // so scenarios like "..." then "Это мило" stay as one bubble.
+        pendingPlayerLines.push(nxt.text)
+      } else if (nxt.type === 'answer1' || nxt.type === 'answer2') {
+        flushPendingPlayer()
+        choices.push({ text: nxt.text })
+        hasBranching = true
+      } else if (nxt.type === 'affection') {
+        const num = Number(nxt.text.replace(/^\+/, '').trim())
+        affection = Number.isFinite(num) ? num : null
+      } else if (nxt.type === 'emotion') {
+        const first = nxt.text.split(/\s+/)[0]
+        if (first) emotion = first
+      }
+      j++
+    }
+    flushPendingPlayer()
+
+    if (choices.length > 0) {
+      const fallback = hasBranching ? DEFAULT_BRANCHING_AFFECTION : DEFAULT_LINEAR_AFFECTION
+      nodes.push({
+        id: nodes.length,
+        speaker: e.speaker,
+        text: e.text,
+        choices,
+        affection: affection ?? fallback,
+        emotion,
+      })
+    }
+
+    i = j
   }
 
-  if (current.length) blocks.push(current.join('\n'))
-  return blocks
+  return nodes
 }
 
 export function parseDialogMarkdown(girlId: number, raw: string): GirlDialog {
-  const blocks = splitDialogBlocks(raw)
-  const nodes: DialogNode[] = []
-
-  for (const block of blocks) {
-    const node = parseBlock(block, nodes.length)
-    if (node) nodes.push(node)
-  }
-
+  const entries = tokenize(raw)
+  const nodes = buildNodes(entries)
   return { girlId, nodes }
 }

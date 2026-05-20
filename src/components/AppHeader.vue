@@ -5,14 +5,14 @@ import { useUserAvatar } from '@/composables/useUserAvatar'
 
 defineProps<{
   nickname: string
-  level: number
   energy: number
-  energyMax: number
   diamonds: number
 }>()
 
 defineEmits<{
   (e: 'profile'): void
+  (e: 'shop'): void
+  (e: 'shop-energy'): void
 }>()
 
 const { selectedAvatar } = useUserAvatar()
@@ -32,19 +32,18 @@ const { selectedAvatar } = useUserAvatar()
       </div>
       <div class="user-info">
         <div class="nickname">{{ nickname }}</div>
-        <div class="level">Уровень {{ level }}</div>
       </div>
     </button>
 
     <div class="stats">
-      <div class="stat">
+      <button type="button" class="stat stat--clickable" @click="$emit('shop-energy')">
         <img :src="statEnergy" alt="энергия" class="stat-img" />
-        <span>{{ energy }}/{{ energyMax }}</span>
-      </div>
-      <div class="stat">
+        <span>{{ energy }}</span>
+      </button>
+      <button type="button" class="stat stat--clickable" @click="$emit('shop')">
         <img :src="statStone" alt="алмазы" class="stat-img" />
         <span>{{ diamonds }}</span>
-      </div>
+      </button>
     </div>
   </header>
 </template>
@@ -56,8 +55,8 @@ const { selectedAvatar } = useUserAvatar()
   justify-content: space-between;
   padding: 56px 16px 10px;
   gap: 12px;
-  background: #14141f;
-  border-bottom: 1px solid #ffffff0c;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--hairline);
   margin-bottom: 16px;
 }
 
@@ -80,12 +79,12 @@ const { selectedAvatar } = useUserAvatar()
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #4a3550 0%, #2a1f30 100%);
-  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  background: var(--gradient-brand);
+  border: 1.5px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.85);
+  color: #fff;
   font-weight: 700;
   font-size: 18px;
   flex-shrink: 0;
@@ -105,15 +104,8 @@ const { selectedAvatar } = useUserAvatar()
 .nickname {
   font-size: 15px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text);
   line-height: 1.2;
-}
-
-.level {
-  font-size: 11px;
-  color: #ffb83d;
-  margin-top: 2px;
-  font-weight: 500;
 }
 
 .stats {
@@ -126,9 +118,22 @@ const { selectedAvatar } = useUserAvatar()
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #fff;
+  color: var(--text);
   font-size: 14px;
   font-weight: 700;
+}
+
+.stat--clickable {
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.stat--clickable:active {
+  opacity: 0.75;
 }
 
 .stat-img {

@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onActivated, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
+import AppButton from '@/components/AppButton.vue'
 import BottomNav from '@/components/BottomNav.vue'
 import AvatarPicker from '@/components/AvatarPicker.vue'
 import { useUserAvatar } from '@/composables/useUserAvatar'
+import { useChatHistory } from '@/composables/useChatHistory'
+import { resetAllGameProgress } from '@/composables/useGameReset'
+import { useAchievements } from '@/composables/useAchievements'
+import { usePlayerStats } from '@/composables/usePlayerStats'
 
 import IconPen from '~icons/solar/pen-2-bold'
 import IconChart from '~icons/solar/chart-2-bold'
@@ -24,52 +29,31 @@ interface Stat {
   iconKey: 'forms' | 'matches' | 'dialogs' | 'dates'
 }
 
-interface Achievement {
-  id: string
-  label: string
-  iconKey: 'step' | 'social' | 'romantic'
-  gradient: string
-  unlocked: boolean
-}
-
 const router = useRouter()
 const { avatars, selectedAvatar, setAvatar } = useUserAvatar()
+const { unreadTotal } = useChatHistory()
+const { stats: playerStats, refresh: refreshStats } = usePlayerStats()
+const { profilePreview, refreshAchievements } = useAchievements()
 const showAvatarPicker = ref(false)
+
+function refreshProfile() {
+  refreshStats()
+  refreshAchievements()
+}
+
+onMounted(refreshProfile)
+onActivated(refreshProfile)
 
 const user = ref({
   nickname: 'Новичок',
-  level: 5,
-  xp: 320,
-  xpMax: 700,
 })
 
-const stats = ref<Stat[]>([
-  { id: 's1', label: 'Анкеты',   value: 12, iconKey: 'forms' },
-  { id: 's2', label: 'Мэтчи',    value: 8,  iconKey: 'matches' },
-  { id: 's3', label: 'Диалоги',  value: 5,  iconKey: 'dialogs' },
-  { id: 's4', label: 'Свидания', value: 3,  iconKey: 'dates' },
+const stats = computed<Stat[]>(() => [
+  { id: 's1', label: 'Анкеты', value: playerStats.value.profiles, iconKey: 'forms' },
+  { id: 's2', label: 'Мэтчи', value: playerStats.value.matches, iconKey: 'matches' },
+  { id: 's3', label: 'Диалоги', value: playerStats.value.dialogs, iconKey: 'dialogs' },
+  { id: 's4', label: 'Свидания', value: playerStats.value.dates, iconKey: 'dates' },
 ])
-
-const achievements = ref<Achievement[]>([
-  {
-    id: 'a1', label: 'Первый шаг',  iconKey: 'step',     unlocked: true,
-    gradient: 'linear-gradient(135deg, #5fb8ff 0%, #5b3df0 100%)',
-  },
-  {
-    id: 'a2', label: 'Общительный', iconKey: 'social',   unlocked: true,
-    gradient: 'linear-gradient(135deg, #ff3d8a 0%, #b14bff 100%)',
-  },
-  {
-    id: 'a3', label: 'Романтик',    iconKey: 'romantic', unlocked: true,
-    gradient: 'linear-gradient(135deg, #ffb83d 0%, #ff7a3d 100%)',
-  },
-  {
-    id: 'a4', label: 'Скрыто',      iconKey: 'step',     unlocked: false,
-    gradient: '',
-  },
-])
-
-const xpPercent = computed(() => Math.min(100, (user.value.xp / user.value.xpMax) * 100))
 
 function onEditAvatar() {
   showAvatarPicker.value = true
@@ -92,6 +76,15 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   else if (tab === 'chats') void router.push('/chats')
   else if (tab === 'swipe') void router.push('/swipe')
   else if (tab === 'dates') void router.push('/dates')
+}
+
+function onResetProgress() {
+  const ok = window.confirm(
+    'Сбросить весь прогресс?\n\nЧаты, диалоги, свидания, статистика, энергия и алмазы вернутся к начальным значениям.',
+  )
+  if (!ok) return
+  resetAllGameProgress()
+  refreshProfile()
 }
 </script>
 
@@ -123,16 +116,6 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
         <div class="nick-row">
           <h1 class="nickname">{{ user.nickname }}</h1>
           <IconStar class="nick-badge" />
-        </div>
-        <div class="level-row">
-          <span class="level-label">Уровень</span>
-          <span class="level-badge">{{ user.level }}</span>
-        </div>
-        <div class="xp-row">
-          <div class="xp-bar">
-            <span class="xp-fill" :style="{ width: xpPercent + '%' }" />
-          </div>
-          <span class="xp-text">{{ user.xp }} / {{ user.xpMax }}</span>
         </div>
       </section>
 
@@ -171,25 +154,29 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 
         <div class="ach-grid">
           <div
-            v-for="a in achievements"
+            v-for="a in profilePreview"
             :key="a.id"
             :class="['ach-cell', { locked: !a.unlocked }]"
           >
             <div class="ach-icon" :style="a.unlocked ? { background: a.gradient } : undefined">
-              <template v-if="a.unlocked">
-                <IconRanking v-if="a.iconKey === 'step'" />
-                <IconUsersGroup v-else-if="a.iconKey === 'social'" />
-                <IconShield v-else-if="a.iconKey === 'romantic'" />
-              </template>
+              <IconRanking v-if="a.unlocked" />
               <IconLock v-else class="lock" />
             </div>
             <div class="ach-label">{{ a.label }}</div>
           </div>
         </div>
       </section>
+
+      <section class="reset-section">
+        <AppButton variant="danger" @click="onResetProgress">Сброс</AppButton>
+      </section>
     </div>
 
-    <BottomNav active="profile" :chats-badge="3" @navigate="onNav" />
+    <BottomNav
+      active="profile"
+      :chats-badge="unreadTotal > 0 ? unreadTotal : undefined"
+      @navigate="onNav"
+    />
 
     <AvatarPicker
       :show="showAvatarPicker"
@@ -205,8 +192,8 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 .profile {
   width: 100%;
   height: 100%;
-  background: #0a0a14;
-  color: #fff;
+  background: var(--bg);
+  color: var(--text);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   display: flex;
   flex-direction: column;
@@ -222,8 +209,8 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   height: 300px;
   z-index: 0;
   background:
-    radial-gradient(circle at 70% 65%, #ffb83d 0%, transparent 22%),
-    linear-gradient(180deg, #2a1454 0%, #5b3df0 45%, #b14bff 75%, #1f0d3a 100%);
+    radial-gradient(circle at 70% 65%, #ffd6a1 0%, transparent 28%),
+    linear-gradient(180deg, #f5d6ff 0%, #ffc7e0 45%, #ffd2e8 75%, #fdf7fa 100%);
   pointer-events: none;
 }
 
@@ -231,7 +218,7 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent 60%, rgba(10, 10, 20, 0.6) 85%, #0a0a14 100%);
+  background: linear-gradient(180deg, transparent 60%, rgba(253, 247, 250, 0.7) 85%, var(--bg) 100%);
 }
 
 /* make the page header transparent so the cover gradient shows through */
@@ -245,9 +232,13 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 .scroll {
   flex: 1;
   overflow-y: auto;
-  padding-bottom: 12px;
+  padding-bottom: 8px;
   position: relative;
   z-index: 1;
+}
+
+.reset-section {
+  margin: 4px 12px 16px;
 }
 .scroll::-webkit-scrollbar { display: none; }
 
@@ -271,15 +262,16 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: linear-gradient(135deg, #4a3550 0%, #2a1f30 100%);
-  border: 4px solid #14141f;
+  background: var(--gradient-brand);
+  border: 4px solid var(--surface);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 48px;
   font-weight: 800;
-  color: rgba(255, 255, 255, 0.85);
+  color: #fff;
   overflow: hidden;
+  box-shadow: var(--shadow);
 }
 
 .avatar-img {
@@ -295,8 +287,8 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #b14bff 0%, #5b3df0 100%);
-  border: 3px solid #0a0a14;
+  background: var(--gradient-brand-violet);
+  border: 3px solid var(--surface);
   outline: none;
   color: #fff;
   display: flex;
@@ -309,7 +301,7 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 
 /* --- identity --- */
 .identity {
-  padding: 48px 16px 18px;
+  padding: 48px 16px 12px;
   text-align: center;
 }
 
@@ -323,80 +315,23 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   margin: 0;
   font-size: 22px;
   font-weight: 800;
-  color: #fff;
+  color: var(--text);
 }
 
 .nick-badge {
   width: 16px;
   height: 16px;
-  color: #b14bff;
-}
-
-.level-row {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.level-label {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.65);
-  font-weight: 500;
-}
-
-.level-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: rgba(177, 75, 255, 0.18);
-  border: 1px solid rgba(177, 75, 255, 0.45);
-  color: #c79bff;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.xp-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 14px;
-  padding: 0 4px;
-}
-
-.xp-bar {
-  flex: 1;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  overflow: hidden;
-}
-
-.xp-fill {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, #ff3d8a 0%, #b14bff 60%, #5b3df0 100%);
-  border-radius: 999px;
-  transition: width 0.3s ease;
-}
-
-.xp-text {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
-  font-weight: 600;
+  color: var(--accent);
 }
 
 /* --- cards --- */
 .card {
   margin: 0 12px 14px;
   padding: 14px 14px 16px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 18px;
+  box-shadow: var(--shadow-sm);
 }
 
 .card-head {
@@ -415,15 +350,15 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   justify-content: center;
 }
 
-.head-icon svg { width: 14px; height: 14px; color: #b14bff; }
+.head-icon svg { width: 14px; height: 14px; color: var(--accent); }
 
-.head-icon--violet { color: #b14bff; }
+.head-icon--violet { color: var(--accent); }
 
 .card-title {
   margin: 0;
   font-size: 15px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text);
   flex: 1;
 }
 
@@ -432,7 +367,7 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   background: transparent;
   border: none;
   outline: none;
-  color: #b14bff;
+  color: var(--accent);
   font-family: inherit;
   font-size: 12px;
   font-weight: 600;
@@ -448,8 +383,8 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 }
 
 .stat-cell {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 12px 4px 10px;
   display: flex;
@@ -476,14 +411,14 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 
 .stat-label {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-muted);
   font-weight: 500;
 }
 
 .stat-value {
   font-size: 16px;
   font-weight: 800;
-  color: #fff;
+  color: var(--text);
 }
 
 /* achievements */
@@ -514,18 +449,18 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 .ach-icon svg { width: 26px; height: 26px; color: #fff; }
 
 .ach-cell.locked .ach-icon {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
   box-shadow: none;
 }
-.ach-cell.locked .lock { color: rgba(255, 255, 255, 0.4); }
+.ach-cell.locked .lock { color: var(--text-dim); }
 
 .ach-label {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.7);
-  font-weight: 500;
+  color: var(--text);
+  font-weight: 600;
   text-align: center;
 }
 
-.ach-cell.locked .ach-label { color: rgba(255, 255, 255, 0.35); }
+.ach-cell.locked .ach-label { color: var(--text-dim); }
 </style>

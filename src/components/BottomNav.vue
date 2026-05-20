@@ -73,8 +73,8 @@ defineEmits<{
   align-items: center;
   justify-content: space-around;
   padding: 10px 8px 22px;
-  background: #14141f;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  background: var(--nav-bg);
+  border-top: 1px solid var(--hairline);
 }
 
 .nav-item {
@@ -87,7 +87,7 @@ defineEmits<{
   background: none;
   border: none;
   outline: none;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-dim);
   font-size: 11px;
   font-family: inherit;
   font-weight: 500;
@@ -108,12 +108,12 @@ defineEmits<{
 }
 
 .nav-item.active {
-  color: #b14bff;
+  color: var(--accent);
 }
 
 .nav-item.active .nav-icon {
-  color: #b14bff;
-  filter: drop-shadow(0 0 6px rgba(177, 75, 255, 0.4));
+  color: var(--accent);
+  filter: drop-shadow(0 0 6px rgba(177, 75, 255, 0.35));
 }
 
 .nav-label {
@@ -129,14 +129,14 @@ defineEmits<{
   height: 18px;
   padding: 0 5px;
   border-radius: 999px;
-  background: #ff3d5a;
+  background: var(--danger);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid #14141f;
+  border: 2px solid var(--nav-bg);
 }
 
 /* center swipe FAB */

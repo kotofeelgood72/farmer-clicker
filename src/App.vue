@@ -1,5 +1,36 @@
 <script setup lang="ts">
-import { RouterView } from 'vue-router'
+import { nextTick, watch } from 'vue'
+import { RouterView, useRoute, useRouter } from 'vue-router'
+import DailyRewardsModal from '@/components/DailyRewardsModal.vue'
+import IosNotificationBanner from '@/components/IosNotificationBanner.vue'
+import { useAchievements } from '@/composables/useAchievements'
+import { useDailyRewards } from '@/composables/useDailyRewards'
+import { useNotificationWatcher } from '@/composables/useNotificationWatcher'
+
+const route = useRoute()
+const router = useRouter()
+const { syncAndShowModal } = useDailyRewards()
+const { refreshAchievements } = useAchievements()
+
+useNotificationWatcher()
+
+function onAppRoute(path: string) {
+  refreshAchievements()
+  if (path === '/main') {
+    syncAndShowModal()
+  }
+}
+
+router.isReady().then(() => {
+  void nextTick(() => onAppRoute(route.path))
+})
+
+watch(
+  () => route.path,
+  (path) => {
+    void nextTick(() => onAppRoute(path))
+  },
+)
 </script>
 
 <template>
@@ -9,6 +40,8 @@ import { RouterView } from 'vue-router'
         <div class="phone-screen">
           <div class="dynamic-island" />
           <RouterView />
+          <IosNotificationBanner />
+          <DailyRewardsModal />
         </div>
       </div>
     </div>

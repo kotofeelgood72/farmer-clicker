@@ -1,14 +1,25 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import IconArrowLeft from '~icons/solar/arrow-left-linear'
 import { GIRLS } from '@/data/girls'
 import { hasGirlDialog } from '@/data/dialogs'
-import { useChatHistory } from '@/composables/useChatHistory'
+import { getDailyDateByGirlId } from '@/data/dates'
+import { useAchievements } from '@/composables/useAchievements'
+import {
+  checkRelationshipLevelUps,
+  notifyDateAvailable,
+} from '@/composables/useInAppNotifications'
+import {
+  syncAwaitingReplyForGirl,
+  useChatHistory,
+} from '@/composables/useChatHistory'
+import { useDiamonds } from '@/composables/useDiamonds'
+import { computeReplyCost } from '@/composables/useDialogChat'
 import { useGirlChat, type ChatReply } from '@/composables/useGirlChat'
-import IconMenuDots from '~icons/solar/menu-dots-bold'
 import IconCheckRead from '~icons/solar/check-read-outline'
+import iconStone from '@/assets/ui/stone.png'
 import QuickReply from '@/components/QuickReply.vue'
 import ChatTypingIndicator from '@/components/ChatTypingIndicator.vue'
 import chatBgUrl from '@/assets/ui/chat-bg.png'
@@ -21,15 +32,22 @@ interface Message {
   time: string
 }
 
-interface QuickReply {
+interface FallbackReply {
   id: number
   text: string
-  affinity: number
+  cost: number
 }
 
 const router = useRouter()
 const route = useRoute()
 const { touchChat, markChatRead } = useChatHistory()
+const { diamonds, canSpend, spend } = useDiamonds()
+const {
+  trackPlayerMessage,
+  trackDiamondsSpent,
+  trackThemMessage,
+  refreshAchievements,
+} = useAchievements()
 
 const girlId = computed(() => {
   const id = Number(route.params.id)
@@ -60,9 +78,17 @@ const fallbackMessages = ref<Message[]>([
   { id: 2, sender: 'me', text: 'Да, только недавно начал играть.', time: '12:31' },
 ])
 
-const fallbackReplies = ref<QuickReply[]>([
-  { id: 1, text: 'Конечно, попробую! ✋', affinity: 10 },
-  { id: 2, text: 'Я постараюсь изо всех сил.', affinity: 5 },
+const fallbackReplies = ref<FallbackReply[]>([
+  {
+    id: 1,
+    text: 'Конечно, попробую! ✋',
+    cost: computeReplyCost(0, 0, 'Конечно, попробую! ✋'),
+  },
+  {
+    id: 2,
+    text: 'Я постараюсь изо всех сил.',
+    cost: computeReplyCost(0, 1, 'Я постараюсь изо всех сил.'),
+  },
 ])
 
 const messages = computed(() =>
@@ -78,6 +104,10 @@ const showReplies = computed(() =>
 )
 
 const isTyping = computed(() => hasDialog.value && dialogChat.isTyping.value)
+
+const chatComplete = computed(
+  () => hasDialog.value && dialogChat.dialogComplete.value,
+)
 
 const showOnlineDot = computed(
   () => character.value.online && !isTyping.value,
@@ -100,7 +130,19 @@ function syncChatPreview() {
   touchChat(girlId.value, { preview: last?.text })
 }
 
-function onPickReply(reply: ChatReply | QuickReply) {
+function onPickReply(reply: ChatReply | FallbackReply) {
+  if (!canSpend(reply.cost)) {
+    void router.push('/shop')
+    return
+  }
+  if (!spend(reply.cost)) {
+    void router.push('/shop')
+    return
+  }
+
+  trackDiamondsSpent(reply.cost)
+  trackPlayerMessage()
+
   if (hasDialog.value) {
     dialogChat.pickReply(reply as ChatReply)
     syncChatPreview()
@@ -122,8 +164,23 @@ watch(
   () => dialogChat.messages.value.length,
   () => {
     if (!hasDialog.value) return
+    const last = dialogChat.messages.value.at(-1)
+    if (last?.sender === 'them') {
+      trackThemMessage()
+      touchChat(girlId.value, { preview: last.text })
+    }
     syncChatPreview()
     void scrollToBottom()
+  },
+)
+
+watch(
+  () => dialogChat.dialogComplete.value,
+  (done, wasDone) => {
+    if (!done || wasDone) return
+    refreshAchievements()
+    notifyDateAvailable(girlId.value)
+    checkRelationshipLevelUps()
   },
 )
 
@@ -146,13 +203,29 @@ onMounted(() => {
   void scrollToBottom()
 })
 
+onUnmounted(() => {
+  syncAwaitingReplyForGirl(girlId.value)
+})
+
 function onBack() {
   void router.push('/chats')
 }
 
-function onMenu() {
-  // eslint-disable-next-line no-console
-  console.info('[chat] menu')
+function onOpenShop() {
+  void router.push('/shop')
+}
+
+function onOpenProfile() {
+  void router.push(`/relationship/${girlId.value}`)
+}
+
+function onGoToDate() {
+  const daily = getDailyDateByGirlId(girlId.value)
+  if (daily) {
+    void router.push(`/date/${daily.id}`)
+  } else {
+    void router.push('/dates')
+  }
 }
 </script>
 
@@ -163,7 +236,7 @@ function onMenu() {
         <IconArrowLeft class="back-icon" />
       </button>
 
-      <div class="head-user">
+      <button type="button" class="head-user" @click="onOpenProfile">
         <div class="head-avatar-wrap">
           <div class="head-avatar" :style="{ background: character.color }">
             <img
@@ -180,10 +253,11 @@ function onMenu() {
           <div class="head-name">{{ character.name }}</div>
           <div v-if="isTyping" class="head-typing">печатает...</div>
         </div>
-      </div>
+      </button>
 
-      <button class="menu-btn" aria-label="меню" @click="onMenu">
-        <IconMenuDots class="menu-icon" />
+      <button type="button" class="diamonds-btn" aria-label="алмазы" @click="onOpenShop">
+        <img :src="iconStone" alt="" class="diamonds-btn__icon" />
+        <span class="diamonds-btn__value">{{ diamonds }}</span>
       </button>
     </header>
 
@@ -207,14 +281,30 @@ function onMenu() {
       />
     </div>
 
-    <div v-if="showReplies" class="replies">
+    <div v-if="showReplies && !chatComplete" class="replies">
       <QuickReply
         v-for="r in replies"
         :key="r.id"
         :text="r.text"
-        :affinity="r.affinity"
+        :cost="r.cost"
         @pick="onPickReply(r)"
       />
+    </div>
+
+    <div v-if="chatComplete" class="completion-overlay">
+      <div class="completion-card">
+        <div class="completion-emoji">💞</div>
+        <div class="completion-title">Скоро на свидание</div>
+        <div class="completion-text">
+          {{ character.name }} ждёт тебя в реальном мире
+        </div>
+        <button class="completion-btn" type="button" @click="onGoToDate">
+          На свидание с {{ character.name }}
+        </button>
+        <button class="completion-ghost" type="button" @click="onBack">
+          Назад
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -224,8 +314,8 @@ function onMenu() {
   position: relative;
   width: 100%;
   height: 100%;
-  background-color: #0a0a14;
-  color: #fff;
+  background-color: var(--bg);
+  color: var(--text);
   font-family:
     'Inter',
     system-ui,
@@ -244,7 +334,7 @@ function onMenu() {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  opacity: 0.5;
+  opacity: 0.18;
   z-index: 0;
   pointer-events: none;
 }
@@ -260,18 +350,17 @@ function onMenu() {
   align-items: center;
   gap: 10px;
   padding: 56px 12px 10px;
-  background: #14141f;
-  border-bottom: 1px solid #ffffff0c;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--hairline);
 }
 
-.back-btn,
-.menu-btn {
+.back-btn {
   width: 36px;
   height: 36px;
   background: transparent;
   border: none;
   outline: none;
-  color: #fff;
+  color: var(--text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -282,11 +371,37 @@ function onMenu() {
 
 .back-icon { width: 20px; height: 20px; }
 
-.menu-icon {
-  width: 20px;
-  height: 20px;
-  transform: rotate(90deg);
-  color: rgba(255, 255, 255, 0.75);
+.diamonds-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  transition: opacity 0.15s ease;
+}
+
+.diamonds-btn:active {
+  opacity: 0.8;
+}
+
+.diamonds-btn__icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  -webkit-user-drag: none;
+}
+
+.diamonds-btn__value {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1;
 }
 
 .head-user {
@@ -295,7 +410,17 @@ function onMenu() {
   align-items: center;
   gap: 10px;
   min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+  text-align: left;
 }
+
+.head-user:active { opacity: 0.7; }
 
 .head-avatar-wrap {
   position: relative;
@@ -311,7 +436,7 @@ function onMenu() {
   justify-content: center;
   font-weight: 700;
   font-size: 16px;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.9);
   overflow: hidden;
 }
 
@@ -322,8 +447,8 @@ function onMenu() {
   width: 11px;
   height: 11px;
   border-radius: 50%;
-  background: #3ddc84;
-  border: 2px solid #14141f;
+  background: var(--success);
+  border: 2px solid var(--header-bg);
   box-sizing: border-box;
 }
 
@@ -341,7 +466,7 @@ function onMenu() {
 .head-name {
   font-size: 16px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text);
   line-height: 1.1;
   min-width: 0;
   overflow: hidden;
@@ -353,7 +478,7 @@ function onMenu() {
   margin-top: 2px;
   font-size: 12px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-muted);
 }
 
 /* messages */
@@ -414,18 +539,21 @@ function onMenu() {
   line-height: 1.35;
   position: relative;
   word-wrap: break-word;
+  white-space: pre-line;
 }
 
 .message--them .bubble {
-  background: #1d1b2a;
-  color: rgba(255, 255, 255, 0.92);
+  background: var(--bubble-them-bg);
+  color: var(--bubble-them-text);
   border-bottom-left-radius: 6px;
+  box-shadow: var(--shadow-sm);
 }
 
 .message--me .bubble {
-  background: #5b3df0;
-  color: #fff;
+  background: var(--bubble-me-bg);
+  color: var(--bubble-me-text);
   border-bottom-right-radius: 6px;
+  box-shadow: 0 4px 14px rgba(177, 75, 255, 0.22);
 }
 
 .bubble-meta {
@@ -439,8 +567,12 @@ function onMenu() {
   opacity: 0.7;
 }
 
+.message--them .bubble-meta {
+  color: var(--text-muted);
+}
+
 .message--me .bubble-meta {
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .check {
@@ -456,4 +588,99 @@ function onMenu() {
   gap: 8px;
   padding: 0 12px 22px;
 }
+
+/* completion modal */
+.completion-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(20, 18, 30, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  animation: completion-fade 0.32s ease-out;
+}
+
+@keyframes completion-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.completion-card {
+  width: 100%;
+  max-width: 320px;
+  padding: 28px 24px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  animation: completion-pop 0.4s cubic-bezier(0.22, 1.2, 0.36, 1);
+}
+
+@keyframes completion-pop {
+  from { opacity: 0; transform: translateY(20px) scale(0.92); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.completion-emoji {
+  font-size: 44px;
+  line-height: 1;
+  margin-bottom: 14px;
+}
+
+.completion-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.completion-text {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-bottom: 20px;
+}
+
+.completion-btn {
+  display: inline-block;
+  width: 100%;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: none;
+  outline: none;
+  background: var(--gradient-brand-violet);
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(177, 75, 255, 0.32);
+  transition: transform 0.1s ease;
+}
+
+.completion-btn:active { transform: scale(0.98); }
+
+.completion-ghost {
+  display: inline-block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px 18px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: color 0.15s ease;
+}
+
+.completion-ghost:hover { color: var(--text); }
+.completion-ghost:active { color: var(--text); }
 </style>

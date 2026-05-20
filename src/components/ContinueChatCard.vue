@@ -5,7 +5,8 @@ defineProps<{
   statusAccent?: boolean
   badge?: number
   letter?: string
-  mediaStyle: Record<string, string | undefined>
+  imageSrc?: string
+  accentColor?: string
   /** Одна большая карточка на главной */
   featured?: boolean
 }>()
@@ -21,7 +22,18 @@ defineEmits<{
     :class="['chat-card', { 'chat-card--featured': featured }]"
     @click="$emit('open')"
   >
-    <div class="chat-card__media" :style="mediaStyle">
+    <div
+      class="chat-card__media"
+      :style="{ backgroundColor: accentColor ?? '#3a3a48' }"
+    >
+      <img
+        v-if="imageSrc"
+        class="chat-card__img"
+        :src="imageSrc"
+        :alt="name"
+        draggable="false"
+        decoding="async"
+      />
       <span v-if="badge" class="chat-card__badge">{{ badge }}</span>
       <span v-if="letter" class="chat-card__letter">{{ letter }}</span>
       <div class="chat-card__info">
@@ -61,12 +73,22 @@ defineEmits<{
   aspect-ratio: 3 / 4.15;
   border-radius: 16px;
   overflow: hidden;
-  background-size: cover;
-  background-position: center top;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   transition: transform 0.15s ease;
+}
+
+.chat-card__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  user-select: none;
 }
 
 .chat-card__letter {

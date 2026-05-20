@@ -11,6 +11,7 @@ import {
   formatChatTime,
   useChatHistory,
 } from '@/composables/useChatHistory'
+import { isGirlChatAwaitingReply, isGirlChatCompleted } from '@/composables/useGirlChat'
 import { GIRLS } from '@/data/girls'
 
 interface ChatListItem {
@@ -20,10 +21,11 @@ interface ChatListItem {
   time: string
   unread?: number
   color: string
+  completed: boolean
 }
 
 const router = useRouter()
-const { recentChats, markChatRead } = useChatHistory()
+const { recentChats, markChatRead, unreadTotal } = useChatHistory()
 
 const chats = computed<ChatListItem[]>(() =>
   recentChats.value.map((session) => {
@@ -35,14 +37,11 @@ const chats = computed<ChatListItem[]>(() =>
         ? formatChatPreview(session.lastPreview)
         : 'Начните общение',
       time: formatChatTime(session.lastActivityAt),
-      unread: session.unread > 0 ? session.unread : undefined,
+      unread: isGirlChatAwaitingReply(session.girlId) ? 1 : undefined,
       color: girl?.color ?? '#3a3a48',
+      completed: isGirlChatCompleted(session.girlId),
     }
   }),
-)
-
-const unreadTotal = computed(() =>
-  recentChats.value.reduce((sum, s) => sum + s.unread, 0),
 )
 
 const searching = ref(false)
@@ -79,6 +78,10 @@ function onClearQuery() {
 
 function girlImage(id: number) {
   return GIRLS.find((g) => g.id === id)?.image
+}
+
+function onOpenProfile(girlId: number) {
+  void router.push(`/relationship/${girlId}`)
 }
 
 function onOpenChat(chat: ChatListItem) {
@@ -128,35 +131,42 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
     </Transition>
 
     <div class="list">
-      <button
-        v-for="chat in filtered"
-        :key="chat.id"
-        class="chat"
-        @click="onOpenChat(chat)"
-      >
-        <div class="avatar-wrap">
-          <div class="avatar" :style="{ background: chat.color }">
-            <img
-              v-if="girlImage(chat.id)"
-              :src="girlImage(chat.id)"
-              :alt="chat.name"
-              class="avatar-img"
-            />
-            <span v-else class="avatar-letter">{{ chat.name.charAt(0) }}</span>
+      <article v-for="chat in filtered" :key="chat.id" class="chat">
+        <button
+          type="button"
+          class="avatar-btn"
+          :aria-label="`Профиль ${chat.name}`"
+          @click="onOpenProfile(chat.id)"
+        >
+          <div class="avatar-wrap">
+            <div class="avatar" :style="{ background: chat.color }">
+              <img
+                v-if="girlImage(chat.id)"
+                :src="girlImage(chat.id)"
+                :alt="chat.name"
+                class="avatar-img"
+              />
+              <span v-else class="avatar-letter">{{ chat.name.charAt(0) }}</span>
+            </div>
+            <span class="online-dot" aria-label="онлайн" />
           </div>
-          <span class="online-dot" aria-label="онлайн" />
-        </div>
+        </button>
 
-        <div class="body">
-          <div class="name">{{ chat.name }}</div>
-          <div class="message">{{ chat.message }}</div>
-        </div>
+        <button type="button" class="chat-main" @click="onOpenChat(chat)">
+          <div class="body">
+            <div class="name">{{ chat.name }}</div>
+            <div class="message">{{ chat.message }}</div>
+            <span v-if="chat.completed" class="chip-complete">
+              ✓ Диалог завершён
+            </span>
+          </div>
 
-        <div class="meta">
-          <span v-if="chat.unread" class="badge">{{ chat.unread }}</span>
-          <span class="time">{{ chat.time }}</span>
-        </div>
-      </button>
+          <div class="meta">
+            <span v-if="chat.unread" class="badge">{{ chat.unread }}</span>
+            <span class="time">{{ chat.time }}</span>
+          </div>
+        </button>
+      </article>
 
       <div v-if="!chats.length && !searching" class="empty">
         Пока нет чатов — найдите пару в свайпах
@@ -179,8 +189,8 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 .chats {
   width: 100%;
   height: 100%;
-  background: #0a0a14;
-  color: #fff;
+  background: var(--bg);
+  color: var(--text);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   display: flex;
   flex-direction: column;
@@ -193,7 +203,7 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   background: transparent;
   border: none;
   outline: none;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -212,14 +222,14 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   padding: 0 12px;
   height: 42px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--surface);
+  border: 1px solid var(--border);
 }
 
 .search-icon {
   width: 16px;
   height: 16px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-muted);
   flex-shrink: 0;
 }
 
@@ -229,13 +239,13 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   border: none;
   outline: none;
   background: transparent;
-  color: #fff;
+  color: var(--text);
   font-family: inherit;
   font-size: 14px;
-  caret-color: #b14bff;
+  caret-color: var(--accent);
 }
 
-.search-input::placeholder { color: rgba(255, 255, 255, 0.4); }
+.search-input::placeholder { color: var(--text-dim); }
 
 .clear-btn {
   width: 22px;
@@ -244,7 +254,7 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   background: transparent;
   border: none;
   outline: none;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -287,19 +297,48 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 
 .chat {
   display: grid;
-  grid-template-columns: 52px 1fr auto;
+  grid-template-columns: 52px 1fr;
   gap: 12px;
   align-items: stretch;
   padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 18px;
+  width: 100%;
+  box-shadow: var(--shadow-sm);
+}
+
+.avatar-btn {
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  cursor: pointer;
+  align-self: center;
+}
+
+.avatar-btn:active {
+  opacity: 0.85;
+}
+
+.chat-main {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: stretch;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
   cursor: pointer;
   text-align: left;
   font-family: inherit;
   color: inherit;
-  outline: none;
-  width: 100%;
+  min-width: 0;
+}
+
+.chat-main:active {
+  opacity: 0.92;
 }
 
 .avatar-wrap {
@@ -326,8 +365,8 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   width: 13px;
   height: 13px;
   border-radius: 50%;
-  background: #3ddc84;
-  border: 2px solid #0a0a14;
+  background: var(--success);
+  border: 2px solid var(--surface);
   box-sizing: border-box;
 }
 
@@ -340,7 +379,7 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 .avatar-letter {
   font-size: 22px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .body {
@@ -354,7 +393,7 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 .name {
   font-size: 15px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -362,10 +401,26 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 
 .message {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.chip-complete {
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(177, 75, 255, 0.16);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 
 .meta {
@@ -381,7 +436,7 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   height: 20px;
   padding: 0 6px;
   border-radius: 999px;
-  background: #ff3d5a;
+  background: var(--danger);
   color: #fff;
   font-size: 11px;
   font-weight: 700;
@@ -392,14 +447,14 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 
 .time {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-dim);
   white-space: nowrap;
 }
 
 .empty {
   padding: 30px 0;
   text-align: center;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-dim);
   font-size: 13px;
 }
 </style>

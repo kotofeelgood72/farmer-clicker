@@ -1,10 +1,13 @@
 import { computed, ref } from 'vue'
+import { isGirlChatAwaitingReply } from './useGirlChat'
 
 export interface ChatSession {
   girlId: number
   lastActivityAt: number
   lastPreview?: string
   unread: number
+  /** Когда девушка ждёт ответа (последнее сообщение — от неё). */
+  awaitingReplySince?: number | null
 }
 
 const STORAGE_KEY = 'swipe-chat-history'
@@ -23,9 +26,9 @@ function loadSessions(): ChatSession[] {
   }
 }
 
-function saveSessions(sessions: ChatSession[]) {
+function saveSessions(list: ChatSession[]) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list))
   } catch {
     /* ignore */
   }
@@ -33,8 +36,59 @@ function saveSessions(sessions: ChatSession[]) {
 
 const sessions = ref<ChatSession[]>(loadSessions())
 
+export { sessions }
+
+export function getAwaitingReplySessions(): ChatSession[] {
+  return sessions.value.filter(
+    (s) => s.awaitingReplySince != null && s.awaitingReplySince > 0,
+  )
+}
+
+export function clearAwaitingReply(girlId: number) {
+  const idx = sessions.value.findIndex((s) => s.girlId === girlId)
+  if (idx < 0) return
+  const session = sessions.value[idx]
+  if (!session?.awaitingReplySince) return
+  sessions.value[idx] = { ...session, awaitingReplySince: null }
+  saveSessions(sessions.value)
+}
+
+function syncAwaitingReply(girlId: number) {
+  const idx = sessions.value.findIndex((s) => s.girlId === girlId)
+  if (idx < 0) return
+  const session = sessions.value[idx]
+  if (!session) return
+
+  if (isGirlChatAwaitingReply(girlId)) {
+    if (!session.awaitingReplySince) {
+      sessions.value[idx] = { ...session, awaitingReplySince: Date.now() }
+      saveSessions(sessions.value)
+    }
+  } else if (session.awaitingReplySince) {
+    sessions.value[idx] = { ...session, awaitingReplySince: null }
+    saveSessions(sessions.value)
+  }
+}
+
+export function resetChatHistoryStore() {
+  sessions.value = []
+  saveSessions([])
+}
+
 const recentChats = computed(() =>
   [...sessions.value].sort((a, b) => b.lastActivityAt - a.lastActivityAt),
+)
+
+/**
+ * Сколько чатов ждут ответа игрока (последнее сообщение — от девушки,
+ * диалог не завершён). Источник правды — сохранённое состояние диалога;
+ * перечитывается при изменении `sessions` (любой `touchChat` / `markChatRead`).
+ */
+const unreadTotal = computed(() =>
+  sessions.value.reduce(
+    (sum, s) => sum + (isGirlChatAwaitingReply(s.girlId) ? 1 : 0),
+    0,
+  ),
 )
 
 const activeChatGirlIds = computed(
@@ -60,6 +114,7 @@ function touchChat(
     lastActivityAt: now,
     lastPreview: options?.preview ?? prev?.lastPreview,
     unread: Math.max(0, unread),
+    awaitingReplySince: prev?.awaitingReplySince ?? null,
   }
 
   if (idx >= 0) {
@@ -69,6 +124,7 @@ function touchChat(
   }
 
   saveSessions(sessions.value)
+  syncAwaitingReply(girlId)
 }
 
 function markChatRead(girlId: number) {
@@ -77,6 +133,17 @@ function markChatRead(girlId: number) {
   if (!session) return
   sessions.value[idx] = { ...session, unread: 0 }
   saveSessions(sessions.value)
+}
+
+/** Обновить таймер ожидания ответа по сохранённому диалогу. */
+export function syncAwaitingReplyForGirl(girlId: number) {
+  syncAwaitingReply(girlId)
+}
+
+export function syncAllAwaitingReplies() {
+  for (const session of sessions.value) {
+    syncAwaitingReply(session.girlId)
+  }
 }
 
 export function formatChatPreview(text: string): string {
@@ -122,6 +189,7 @@ export function useChatHistory() {
     sessions,
     recentChats,
     activeChatGirlIds,
+    unreadTotal,
     hasActiveChat,
     touchChat,
     markChatRead,

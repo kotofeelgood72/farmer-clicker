@@ -1,7 +1,7 @@
 <script setup lang="ts">
 withDefaults(
   defineProps<{
-    variant?: 'primary' | 'secondary' | 'violet'
+    variant?: 'primary' | 'secondary' | 'violet' | 'danger'
     fullWidth?: boolean
     disabled?: boolean
     type?: 'button' | 'submit' | 'reset'
@@ -69,19 +69,24 @@ defineEmits<{
 }
 
 .app-btn--primary {
-  background: linear-gradient(90deg, #ff3d8a 0%, #b14bff 100%);
-  box-shadow: 0 4px 14px rgba(255, 61, 138, 0.18);
+  background: var(--gradient-brand);
+  box-shadow: 0 4px 14px rgba(255, 77, 142, 0.25);
 }
 
 .app-btn--secondary {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #fff;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
 }
 
 .app-btn--violet {
-  background: #5b3df0;
-  box-shadow: 0 4px 14px rgba(91, 61, 240, 0.25);
+  background: var(--gradient-brand-violet);
+  box-shadow: 0 4px 14px rgba(91, 61, 240, 0.22);
+}
+
+.app-btn--danger {
+  background: var(--danger);
+  box-shadow: 0 4px 14px rgba(255, 61, 90, 0.35);
 }
 
 .app-btn:active:not(:disabled) {

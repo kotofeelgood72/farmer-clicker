@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, onActivated, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppHeader from '@/components/AppHeader.vue'
 import BottomNav from '@/components/BottomNav.vue'
+import BackgroundLobbyChat from '@/components/BackgroundLobbyChat.vue'
 import ContinueChatCard from '@/components/ContinueChatCard.vue'
 
 import { Swiper, SwiperSlide } from 'swiper/vue'
 import { GIRLS } from '@/data/girls'
 import { useChatHistory } from '@/composables/useChatHistory'
+import { useDailyRewards } from '@/composables/useDailyRewards'
+import { useDiamonds } from '@/composables/useDiamonds'
+import { useEnergy } from '@/composables/useEnergy'
 import { getRelationshipLevel } from '@/composables/useRelationshipLevel'
 import 'swiper/css'
 
@@ -19,7 +23,9 @@ import rewardStone from '@/assets/ui/stone.png'
 import rewardEnergy from '@/assets/ui/energy.png'
 import rewardGemstone from '@/assets/ui/gemstone.png'
 import rewardStones from '@/assets/ui/stones.png'
-import rewardPeoples from '@/assets/ui/peoples.png'
+
+import IconCheck from '~icons/solar/check-circle-bold'
+import IconLock from '~icons/solar/lock-bold'
 
 const tileIcons: Record<string, string> = {
   heart: tileHeart,
@@ -28,16 +34,33 @@ const tileIcons: Record<string, string> = {
 }
 
 const router = useRouter()
+const { energy } = useEnergy()
+const { diamonds } = useDiamonds()
+const { streakDay, cards, canClaimToday, syncAndShowModal, openModal } = useDailyRewards()
 
-const user = ref({
-  nickname: 'Новичок',
-  level: 5,
-  energy: 5,
-  energyMax: 5,
-  diamonds: 120,
+function refreshDailyModal() {
+  syncAndShowModal()
+}
+
+onMounted(() => {
+  void nextTick(refreshDailyModal)
 })
 
-const { recentChats } = useChatHistory()
+onActivated(refreshDailyModal)
+
+const user = { nickname: 'Новичок' }
+
+const rewardIcons: Record<number, string> = {
+  1: rewardStone,
+  2: rewardEnergy,
+  3: rewardGemstone,
+  4: rewardEnergy,
+  5: rewardStones,
+  6: rewardEnergy,
+  7: rewardStones,
+}
+
+const { recentChats, unreadTotal } = useChatHistory()
 
 interface ContinueChatItem {
   girlId: number
@@ -46,59 +69,40 @@ interface ContinueChatItem {
   statusAccent: boolean
   badge?: number
   letter?: string
-  mediaStyle: Record<string, string | undefined>
+  imageSrc?: string
+  accentColor: string
 }
 
 const continueChats = computed<ContinueChatItem[]>(() =>
   recentChats.value.map((session) => {
     const girl = GIRLS.find((g) => g.id === session.girlId)
-    const image = girl?.image
+    const photo = girl?.bgImage ?? girl?.image
     return {
       girlId: session.girlId,
       name: girl?.name ?? '???',
       status: `Уровень ${getRelationshipLevel(session.girlId)}`,
       statusAccent: session.unread > 0,
       badge: session.unread > 0 ? session.unread : undefined,
-      letter: image ? undefined : girl?.name.charAt(0),
-      mediaStyle: {
-        backgroundColor: girl?.color ?? '#3a3a48',
-        backgroundImage: image ? `url(${image})` : undefined,
-      },
+      letter: photo ? undefined : girl?.name.charAt(0),
+      imageSrc: photo,
+      accentColor: girl?.color ?? '#3a3a48',
     }
   }),
-)
-
-const unreadTotal = computed(() =>
-  recentChats.value.reduce((sum, s) => sum + s.unread, 0),
 )
 
 function onOpenChat(girlId: number) {
   void router.push(`/chat/${girlId}`)
 }
 
-interface Reward {
-  day: number
-  icon: string
-  amount: number
-  claimed?: boolean
-  current?: boolean
-}
-
-const dailyRewards = ref<Reward[]>([
-  { day: 1, icon: rewardStone, amount: 100, claimed: true },
-  { day: 2, icon: rewardEnergy, amount: 1, claimed: true },
-  { day: 3, icon: rewardGemstone, amount: 0, current: true },
-  { day: 4, icon: rewardStone, amount: 1 },
-  { day: 5, icon: rewardStones, amount: 200 },
-  { day: 6, icon: rewardEnergy, amount: 5 },
-  { day: 7, icon: rewardPeoples, amount: 0 },
-])
-
-const tiles = ref([
+const tiles = [
   { id: 'dates', title: 'Свидания', subtitle: 'Новое событие', icon: 'heart' as const },
   { id: 'tasks', title: 'Задания', subtitle: 'Доступно 4', icon: 'shield' as const },
   { id: 'shop', title: 'Магазин', subtitle: 'Алмазы', icon: 'shop' as const },
-])
+]
+
+function onOpenDailyRewards() {
+  if (canClaimToday.value) openModal()
+}
 
 function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   if (tab === 'home') return
@@ -118,18 +122,23 @@ function onTile(id: string) {
   <div class="main">
     <AppHeader
       :nickname="user.nickname"
-      :level="user.level"
-      :energy="user.energy"
-      :energy-max="user.energyMax"
-      :diamonds="user.diamonds"
+      :energy="energy"
+      :diamonds="diamonds"
       @profile="router.push('/profile')"
+      @shop="router.push({ path: '/shop', query: { tab: 'diamonds' } })"
+      @shop-energy="router.push({ path: '/shop', query: { tab: 'energy' } })"
     />
 
     <div class="scroll">
       <!-- Продолжить общение -->
       <section v-if="continueChats.length" class="section section--continue">
         <h2 class="section-title">Продолжить общение</h2>
-        <Swiper class="continue-row" :slides-per-view="2.65" :space-between="10">
+        <Swiper
+          class="continue-row"
+          slides-per-view="auto"
+          :space-between="10"
+          :round-lengths="true"
+        >
           <SwiperSlide v-for="chat in continueChats" :key="chat.girlId">
             <ContinueChatCard
               :name="chat.name"
@@ -137,7 +146,8 @@ function onTile(id: string) {
               :status-accent="chat.statusAccent"
               :badge="chat.badge"
               :letter="chat.letter"
-              :media-style="chat.mediaStyle"
+              :image-src="chat.imageSrc"
+              :accent-color="chat.accentColor"
               @open="onOpenChat(chat.girlId)"
             />
           </SwiperSlide>
@@ -145,22 +155,53 @@ function onTile(id: string) {
       </section>
 
       <!-- Ежедневные награды -->
-      <section class="section section--rewards">
+      <section
+        class="section section--rewards"
+        :class="{ 'section--rewards-tappable': canClaimToday }"
+        @click="onOpenDailyRewards"
+      >
         <div class="section-head">
           <h2 class="section-title">Ежедневные награды</h2>
-          <span class="section-meta">День 3 из 7</span>
+          <span class="section-meta">День {{ streakDay }} из 7</span>
         </div>
         <Swiper class="rewards-row" :slides-per-view="4.5" :space-between="6">
-          <SwiperSlide v-for="r in dailyRewards" :key="r.day">
-            <div :class="['reward', { active: r.current, claimed: r.claimed }]">
-              <div class="reward-day">День {{ r.day }}</div>
-              <div class="reward-icon-wrap">
-                <div v-if="r.current" class="reward-glow" />
-                <img :src="r.icon" :alt="`День ${r.day}`" class="reward-img" />
+          <SwiperSlide v-for="r in cards" :key="r.day">
+            <div
+              :class="[
+                'reward',
+                {
+                  active: r.status === 'today',
+                  claimed: r.status === 'claimed',
+                  locked: r.status === 'locked',
+                },
+              ]"
+            >
+              <div class="reward-day">
+                {{ r.status === 'today' ? 'Сегодня' : `День ${r.day}` }}
               </div>
-              <div class="reward-amount">
-                <template v-if="r.current || r.amount === 0">День {{ r.day }}</template>
-                <template v-else>{{ r.amount }}</template>
+              <div class="reward-icon-wrap">
+                <div v-if="r.status === 'today'" class="reward-glow" />
+                <img
+                  :src="rewardIcons[r.day]"
+                  :alt="`День ${r.day}`"
+                  class="reward-img"
+                  :class="{ 'reward-img--claimed': r.status === 'claimed' }"
+                />
+              </div>
+              <div class="reward-foot">
+                <span v-if="r.status !== 'claimed'" class="reward-amount">{{ r.amount }}</span>
+                <IconCheck
+                  v-if="r.status === 'claimed'"
+                  class="reward-status reward-status--done"
+                />
+                <IconCheck
+                  v-else-if="r.status === 'today'"
+                  class="reward-status reward-status--today"
+                />
+                <IconLock
+                  v-else-if="r.status === 'locked'"
+                  class="reward-status reward-status--lock"
+                />
               </div>
             </div>
           </SwiperSlide>
@@ -179,6 +220,8 @@ function onTile(id: string) {
           </div>
         </div>
       </section>
+
+      <BackgroundLobbyChat />
     </div>
 
     <BottomNav
@@ -195,8 +238,8 @@ function onTile(id: string) {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #0a0a14;
-  color: #fff;
+  background: var(--bg);
+  color: var(--text);
   font-family:
     'Inter',
     system-ui,
@@ -206,8 +249,11 @@ function onTile(id: string) {
 
 .scroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 0 16px 12px;
+  padding: 0 16px 8px;
+  display: flex;
+  flex-direction: column;
 }
 
 .scroll::-webkit-scrollbar {
@@ -216,14 +262,20 @@ function onTile(id: string) {
 
 .section {
   margin-bottom: 18px;
+  flex-shrink: 0;
 }
 
 .section--rewards {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 18px;
   padding: 14px 12px 12px;
   overflow-x: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.section--rewards-tappable {
+  cursor: pointer;
 }
 
 .section--rewards .section-head {
@@ -241,7 +293,7 @@ function onTile(id: string) {
 .section-title {
   font-size: 15px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text);
   margin: 0 0 10px;
 }
 
@@ -251,7 +303,7 @@ function onTile(id: string) {
 
 .section-meta {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-muted);
   font-weight: 500;
 }
 
@@ -265,6 +317,7 @@ function onTile(id: string) {
 }
 
 .continue-row :deep(.swiper-slide) {
+  width: 132px;
   height: auto;
 }
 
@@ -280,8 +333,8 @@ function onTile(id: string) {
 
 .reward {
   position: relative;
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 6px 2px;
   text-align: center;
@@ -292,23 +345,34 @@ function onTile(id: string) {
 }
 
 .reward.claimed {
+  background: rgba(46, 199, 107, 0.1);
+  border-color: rgba(46, 199, 107, 0.4);
+}
+
+.reward.claimed .reward-day {
+  color: var(--success);
+  font-weight: 700;
+}
+
+.reward.locked {
   opacity: 0.5;
 }
 
 .reward.active {
-  background: rgba(255, 122, 61, 0.06);
+  background: rgba(255, 184, 61, 0.12);
+  border-color: rgba(255, 184, 61, 0.4);
 }
 
 .reward-day {
   font-size: 9px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-muted);
   font-weight: 500;
   line-height: 1;
 }
 
 .reward.active .reward-day {
-  color: #ffb83d;
-  font-weight: 600;
+  color: #d18a2c;
+  font-weight: 700;
 }
 
 .reward-icon-wrap {
@@ -360,15 +424,45 @@ function onTile(id: string) {
   filter: drop-shadow(0 0 6px rgba(255, 61, 138, 0.6));
 }
 
+.reward-foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 14px;
+}
+
 .reward-amount {
   font-size: 10px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text);
   line-height: 1;
 }
 
 .reward.active .reward-amount {
+  color: #d18a2c;
+}
+
+.reward-img--claimed {
+  opacity: 0.55;
+}
+
+.reward-status {
+  width: 12px;
+  height: 12px;
+}
+
+.reward-status--done {
+  color: var(--success);
+}
+
+.reward-status--today {
   color: #ffb83d;
+}
+
+.reward-status--lock {
+  color: #d4a84a;
+  width: 10px;
+  height: 10px;
 }
 
 /* Tiles */
@@ -380,7 +474,8 @@ function onTile(id: string) {
 
 .tile {
   position: relative;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 14px 8px 12px;
   text-align: center;
@@ -388,6 +483,8 @@ function onTile(id: string) {
   flex-direction: column;
   align-items: center;
   gap: 2px;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
 }
 
 .tile-icon {
@@ -409,11 +506,11 @@ function onTile(id: string) {
 .tile-title {
   font-size: 14px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text);
 }
 
 .tile-subtitle {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-muted);
 }
 </style>

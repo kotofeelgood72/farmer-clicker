@@ -5,6 +5,8 @@ export interface GirlProfile {
   bio: string
   tags: string[]
   image?: string
+  /** Полноразмерное фото из папки девушки: bg.png */
+  bgImage?: string
   color: string
   /** 1–3 — «острота» профиля (перчики на карточке) */
   rating: number
@@ -18,13 +20,31 @@ const imageModules = import.meta.glob<string>('@/assets/girls/*/*.png', {
 const imagesById = Object.fromEntries(
   Object.entries(imageModules)
     .map(([path, url]) => {
-      const match = path.match(/girls\/(\d+)\//)
-      return match ? [Number(match[1]), url] as const : null
+      // Берём только файл, чьё имя совпадает с id папки: girls/<id>/<id>.png.
+      // Файлы вида bg.png и прочие нумерованным id-ом изображением не считаются.
+      const match = path.match(/girls\/(\d+)\/(\d+)\.png$/)
+      if (!match || match[1] !== match[2]) return null
+      return [Number(match[1]), url] as const
     })
     .filter((entry): entry is [number, string] => entry !== null),
 ) as Record<number, string>
 
-const GIRL_ROWS: Omit<GirlProfile, 'image'>[] = [
+const bgModules = import.meta.glob<string>('@/assets/girls/*/bg.png', {
+  eager: true,
+  import: 'default',
+})
+
+const bgById = Object.fromEntries(
+  Object.entries(bgModules)
+    .map(([path, url]) => {
+      const match = path.match(/girls\/(\d+)\/bg\.png$/)
+      if (!match) return null
+      return [Number(match[1]), url] as const
+    })
+    .filter((entry): entry is [number, string] => entry !== null),
+) as Record<number, string>
+
+const GIRL_ROWS: Omit<GirlProfile, 'image' | 'bgImage'>[] = [
   {
     id: 1,
     name: 'Алина',
@@ -210,6 +230,7 @@ const GIRL_ROWS: Omit<GirlProfile, 'image'>[] = [
 export const GIRLS: GirlProfile[] = GIRL_ROWS.map((girl) => ({
   ...girl,
   image: imagesById[girl.id],
+  bgImage: bgById[girl.id],
 }))
 
 export function getGirlById(id: number): GirlProfile | undefined {

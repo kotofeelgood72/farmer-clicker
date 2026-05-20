@@ -6,7 +6,7 @@ export interface DialogNode {
   id: number
   speaker: string
   text: string
-  choices: [DialogChoice, DialogChoice]
+  choices: DialogChoice[]
   affection: number
   emotion: string
 }

@@ -53,6 +53,11 @@ const router = createRouter({
       name: 'date',
       component: () => import('@/views/DateSceneView.vue'),
     },
+    {
+      path: '/relationship/:id',
+      name: 'relationship',
+      component: () => import('@/views/GirlProfileView.vue'),
+    },
   ],
 })
 

@@ -1,5 +1,51 @@
 @import './base.css';
 
+/* Light theme tokens — warm pink-cream palette */
+:root {
+  /* surfaces */
+  --bg: #fdf7fa;
+  --surface: #ffffff;
+  --surface-soft: #fbeef4;
+  --surface-muted: rgba(255, 220, 235, 0.45);
+  --header-bg: #ffffff;
+  --nav-bg: #ffffff;
+
+  /* text */
+  --text: #1a1424;
+  --text-muted: #7a6b85;
+  --text-dim: #a99cb5;
+  --text-inverse: #ffffff;
+
+  /* borders / outlines */
+  --border: #ece1ef;
+  --border-strong: #d9c8e0;
+  --hairline: rgba(40, 20, 60, 0.06);
+
+  /* brand */
+  --accent: #b14bff;
+  --accent-2: #ff4d8e;
+  --accent-soft: rgba(177, 75, 255, 0.12);
+  --accent-soft-2: rgba(255, 77, 142, 0.12);
+  --gradient-brand: linear-gradient(135deg, #b14bff 0%, #ff4d8e 100%);
+  --gradient-brand-violet: linear-gradient(135deg, #b14bff 0%, #6e3df0 100%);
+
+  /* status */
+  --success: #2ec76b;
+  --danger: #ff3d5a;
+  --warning: #ffb83d;
+
+  /* shadows */
+  --shadow-sm: 0 2px 8px rgba(180, 80, 160, 0.06);
+  --shadow: 0 4px 16px rgba(180, 80, 160, 0.08);
+  --shadow-lg: 0 10px 28px rgba(180, 80, 160, 0.14);
+
+  /* chat bubbles */
+  --bubble-them-bg: #ffffff;
+  --bubble-them-text: #1a1424;
+  --bubble-me-bg: linear-gradient(135deg, #b14bff 0%, #ff4d8e 100%);
+  --bubble-me-text: #ffffff;
+}
+
 #app {
   width: 100%;
   height: 100dvh;

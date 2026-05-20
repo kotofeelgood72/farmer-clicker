@@ -6,15 +6,21 @@ import gsap from 'gsap'
 import PageHeader from '@/components/PageHeader.vue'
 import MatchOverlay from '@/components/MatchOverlay.vue'
 import IconCloseX from '@/components/icons/IconCloseX.vue'
-import IconBolt from '~icons/solar/bolt-bold'
 import IconVerified from '~icons/solar/verified-check-bold'
 import IconFire from '~icons/solar/fire-bold'
 import heartImg from '@/assets/ui/hearth.png'
+import energyImg from '@/assets/ui/energy.png'
 import { GIRLS, type GirlProfile } from '@/data/girls'
 import { useChatHistory } from '@/composables/useChatHistory'
+import { SWIPE_ENERGY_COST, useEnergy } from '@/composables/useEnergy'
+import { useAchievements } from '@/composables/useAchievements'
+import { usePlayerStats } from '@/composables/usePlayerStats'
 
 const router = useRouter()
 const { touchChat, hasActiveChat } = useChatHistory()
+const { energy, canSpend, spend } = useEnergy()
+const { recordProfileSeen } = usePlayerStats()
+const { trackSwipeEnergy, trackMatch } = useAchievements()
 
 const swipeDeck = computed(() => GIRLS.filter((g) => !hasActiveChat(g.id)))
 const hasSwipeCards = computed(() => swipeDeck.value.length > 0)
@@ -71,6 +77,7 @@ let activePointerId: number | null = null
 
 function onPointerDown(e: PointerEvent) {
   if (animating.value || !currentCard.value) return
+  if (!canSpend(SWIPE_ENERGY_COST)) return
   activePointerId = e.pointerId
   startX = e.clientX
   startY = e.clientY
@@ -120,6 +127,11 @@ function springBack() {
 
 function flyOff(direction: 'left' | 'right') {
   if (!currentCard.value) return
+  if (!spend(SWIPE_ENERGY_COST)) {
+    springBack()
+    return
+  }
+  trackSwipeEnergy(SWIPE_ENERGY_COST)
   animating.value = true
   const targetX = direction === 'right' ? 600 : -600
   const rot = direction === 'right' ? 25 : -25
@@ -153,12 +165,14 @@ function flyOff(direction: 'left' | 'right') {
 
 function advance(direction: 'left' | 'right') {
   const liked = current.value
+  recordProfileSeen()
   index.value++
   dragX.value = 0
   animating.value = false
   // eslint-disable-next-line no-console
   console.info('[swipe]', direction === 'right' ? 'like' : 'skip', liked?.name)
   if (direction === 'right' && liked) {
+    trackMatch()
     touchChat(liked.id, { preview: 'Это совпадение!' })
     matchedCharacter.value = liked
     matchVisible.value = true
@@ -166,29 +180,17 @@ function advance(direction: 'left' | 'right') {
 }
 
 function onLike() {
-  if (animating.value) return
+  if (animating.value || !canSpend(SWIPE_ENERGY_COST)) return
   flyOff('right')
 }
 
 function onSkip() {
-  if (animating.value) return
+  if (animating.value || !canSpend(SWIPE_ENERGY_COST)) return
   flyOff('left')
 }
 
-function onBoost() {
-  if (animating.value) return
-  if (!currentCard.value) return
-  animating.value = true
-  gsap.to(currentCard.value, {
-    scale: 1.06,
-    duration: 0.18,
-    yoyo: true,
-    repeat: 1,
-    ease: 'power2.out',
-    onComplete: () => {
-      animating.value = false
-    },
-  })
+function onOpenShop() {
+  void router.push({ path: '/shop', query: { tab: 'energy' } })
 }
 
 function onBack() {
@@ -313,8 +315,16 @@ onUnmounted(() => {
       <button class="action action--like" :disabled="animating" @click="onLike">
         <img :src="heartImg" alt="лайк" class="action-img" />
       </button>
-      <button class="action action--boost" :disabled="animating" @click="onBoost">
-        <IconBolt class="action-icon" />
+      <button
+        class="action action--boost"
+        type="button"
+        :aria-label="`Энергия: ${energy}`"
+        @click="onOpenShop"
+      >
+        <img :src="energyImg" alt="" class="action-img action-img--energy" />
+        <span class="action-badge" :class="{ 'action-badge--empty': energy <= 0 }">
+          {{ energy }}
+        </span>
       </button>
     </div>
 
@@ -324,8 +334,6 @@ onUnmounted(() => {
       :their-color="matchedCharacter?.color"
       :their-letter="matchedCharacter?.name.charAt(0)"
       :their-image="matchedCharacter?.image"
-      my-color="#4a3550"
-      my-letter="Я"
       @message="onMatchMessage"
       @close="onMatchContinue"
     />
@@ -336,8 +344,8 @@ onUnmounted(() => {
 .swipe {
   width: 100%;
   height: 100%;
-  background: #0a0a14;
-  color: #fff;
+  background: var(--bg);
+  color: var(--text);
   font-family:
     'Inter',
     system-ui,
@@ -363,21 +371,21 @@ onUnmounted(() => {
   margin: 0 0 8px;
   font-size: 17px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text);
 }
 
 .swipe-empty__hint {
   margin: 0 0 20px;
   font-size: 14px;
   line-height: 1.4;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-muted);
 }
 
 .swipe-empty__btn {
   padding: 12px 24px;
   border-radius: 999px;
   border: none;
-  background: linear-gradient(135deg, #b14bff 0%, #5b3df0 100%);
+  background: var(--gradient-brand-violet);
   color: #fff;
   font-family: inherit;
   font-size: 14px;
@@ -423,10 +431,10 @@ onUnmounted(() => {
   inset: 0;
   border-radius: 22px;
   overflow: hidden;
-  background: #16121e;
+  background: var(--surface);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-lg);
   touch-action: none;
   user-select: none;
 }
@@ -611,6 +619,7 @@ onUnmounted(() => {
 /* action buttons */
 .actions {
   display: flex;
+  align-items: center;
   justify-content: center;
   gap: 18px;
   margin-bottom: 12px;
@@ -626,12 +635,12 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  background: #fff;
-  color: #1a1a1a;
+  background: var(--surface);
+  color: var(--text);
   transition:
     transform 0.15s ease,
     box-shadow 0.15s ease;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 6px 18px rgba(180, 80, 160, 0.18);
 }
 
 .action:active:not(:disabled) {
@@ -655,10 +664,9 @@ onUnmounted(() => {
 }
 
 .action--skip {
-  background: #fff;
-  color: #111;
-  border: none;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
 }
 
 .action-icon--close {
@@ -667,13 +675,44 @@ onUnmounted(() => {
 }
 
 .action--like {
-  background: #fff;
-  box-shadow: 0 6px 18px rgba(255, 61, 138, 0.35);
+  background: var(--surface);
+  box-shadow: 0 6px 18px rgba(255, 77, 142, 0.3);
 }
 
 .action--boost {
-  background: linear-gradient(135deg, #b14bff 0%, #5b3df0 100%);
+  background: rgba(95, 184, 255, 0.22);
+  border: 1px solid rgba(95, 184, 255, 0.45);
+  box-shadow: 0 6px 18px rgba(95, 184, 255, 0.2);
+  position: relative;
+}
+
+.action-img--energy {
+  width: 34px;
+  height: 34px;
+}
+
+.action-badge {
+  position: absolute;
+  top: -3px;
+  right: -4px;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  padding: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1a1422;
   color: #fff;
-  box-shadow: 0 6px 18px rgba(91, 61, 240, 0.4);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  border: 2px solid var(--bg);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.action-badge--empty {
+  background: var(--danger);
 }
 </style>

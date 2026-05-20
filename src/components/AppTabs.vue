@@ -46,10 +46,10 @@ defineEmits<{
   flex-shrink: 0;
   padding: 9px 16px;
   border-radius: 999px;
-  border: none;
+  border: 1px solid var(--border);
   outline: none;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.65);
+  background: var(--surface);
+  color: var(--text-muted);
   font-size: 13px;
   font-weight: 600;
   font-family: inherit;
@@ -58,8 +58,9 @@ defineEmits<{
 }
 
 .app-tab.active {
-  background: linear-gradient(135deg, #b14bff 0%, #6e3df0 100%);
+  background: var(--gradient-brand-violet);
   color: #fff;
+  border-color: transparent;
   box-shadow: 0 4px 14px rgba(177, 75, 255, 0.28);
 }
 </style>

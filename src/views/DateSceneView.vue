@@ -1,111 +1,171 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, nextTick, onMounted, useTemplateRef, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import QuickReply from '@/components/QuickReply.vue'
-
-interface Reply {
-  id: number
-  text: string
-  affinity: number
-}
-
-interface Scene {
-  narration: string
-  replies: Reply[]
-  imageColor: string
-  imageLetter: string
-}
+import IconCheckRead from '~icons/solar/check-read-outline'
+import ChatTypingIndicator from '@/components/ChatTypingIndicator.vue'
+import { getDailyDateById } from '@/data/dates'
+import { useAchievements } from '@/composables/useAchievements'
+import { useDiamonds } from '@/composables/useDiamonds'
+import { useMeetingChat } from '@/composables/useMeetingChat'
 
 const router = useRouter()
+const route = useRoute()
+const { canSpend, spend } = useDiamonds()
+const {
+  trackDiamondsSpent,
+  trackPlayerMessage,
+  trackThemMessage,
+  trackDateCompleted,
+  refreshAchievements,
+} = useAchievements()
 
-const dateInfo = ref({
-  title: 'Прогулка в парке',
+const dateId = computed(() => {
+  const id = Number(route.params.id)
+  return Number.isFinite(id) && id > 0 ? id : 1
 })
 
-const scenes = ref<Scene[]>([
-  {
-    narration:
-      'Она сняла очки и посмотрела на тебя. «Знаешь, я редко гуляю после работы. Но с тобой… приятно»',
-    imageColor: '#5e7d4a',
-    imageLetter: 'У',
-    replies: [
-      { id: 1, text: 'Сказать, что тебе тоже приятно', affinity: 10 },
-      { id: 2, text: 'Предложить зайти в кафе',         affinity: 5 },
-      { id: 3, text: 'Сменить тему',                    affinity: -5 },
-    ],
-  },
-  {
-    narration:
-      'Училка улыбнулась и взяла тебя под руку. «Ты не такой, как я думала. С тобой легко».',
-    imageColor: '#7d5a3a',
-    imageLetter: 'У',
-    replies: [
-      { id: 1, text: 'Сделать комплимент',          affinity: 10 },
-      { id: 2, text: 'Расспросить про работу',      affinity: 5 },
-      { id: 3, text: 'Промолчать',                  affinity: -5 },
-    ],
-  },
-  {
-    narration:
-      'Она остановилась у фонаря. «Спасибо за этот вечер. Мне правда было хорошо».',
-    imageColor: '#3a4a6e',
-    imageLetter: 'У',
-    replies: [
-      { id: 1, text: 'Поцеловать на прощание',      affinity: 10 },
-      { id: 2, text: 'Пригласить на новое свидание', affinity: 5 },
-      { id: 3, text: 'Просто кивнуть',              affinity: -5 },
-    ],
-  },
-])
+const daily = computed(() => getDailyDateById(dateId.value))
 
-const step = ref(0)
-const totalSteps = computed(() => scenes.value.length)
-const currentScene = computed(() => scenes.value[step.value])
+const title = computed(() => daily.value?.title ?? 'Свидание')
+const girlName = computed(() => daily.value?.girlName ?? 'Она')
+const girlImage = computed(() => daily.value?.girlImage)
+const girlColor = computed(() => daily.value?.girlColor ?? '#5a5a6a')
+const locationImage = computed(() => daily.value?.locationImage)
+
+const locationId = computed(() => daily.value?.locationId ?? 0)
+const girlId = computed(() => daily.value?.girlId ?? 0)
+
+const {
+  dialog,
+  messages,
+  replies,
+  hasReplies,
+  isTyping,
+  dialogComplete,
+  pickReply,
+  nodeIndex,
+} = useMeetingChat(locationId, girlId)
+
+const totalSteps = computed(() => dialog.value?.nodes.length ?? 0)
+const stepLabel = computed(() => {
+  const total = totalSteps.value
+  if (!total) return ''
+  const current = Math.min(nodeIndex.value + 1, total)
+  return `${current}/${total}`
+})
+
+const scroller = useTemplateRef<HTMLDivElement>('scroller')
+
+async function scrollToBottom() {
+  await nextTick()
+  if (scroller.value) scroller.value.scrollTop = scroller.value.scrollHeight
+}
+
+watch(() => messages.value.length, () => void scrollToBottom())
+watch(isTyping, (typing) => { if (typing) void scrollToBottom() })
+watch(dialogComplete, (done) => {
+  if (done) {
+    trackDateCompleted()
+    refreshAchievements()
+    void scrollToBottom()
+  }
+})
+
+watch(
+  () => messages.value.at(-1)?.sender,
+  (sender) => {
+    if (sender === 'them') trackThemMessage()
+  },
+)
+
+onMounted(() => void scrollToBottom())
 
 function onBack() { void router.push('/dates') }
 
-function onPick(reply: Reply) {
-  // eslint-disable-next-line no-console
-  console.info('[date] reply', reply)
-  if (step.value < totalSteps.value - 1) {
-    step.value++
-  } else {
-    void router.push('/dates')
+function onPick(reply: { id: number; text: string; cost: number }) {
+  if (!canSpend(reply.cost)) {
+    void router.push('/shop')
+    return
   }
+  if (!spend(reply.cost)) {
+    void router.push('/shop')
+    return
+  }
+  trackDiamondsSpent(reply.cost)
+  trackPlayerMessage()
+  pickReply(reply)
 }
 </script>
 
 <template>
   <div class="scene">
-    <PageHeader :title="dateInfo.title" @back="onBack">
+    <PageHeader :title="title" @back="onBack">
       <template #right>
-        <span class="step-counter">{{ step + 1 }}/{{ totalSteps }}</span>
+        <span v-if="stepLabel" class="step-counter">{{ stepLabel }}</span>
       </template>
     </PageHeader>
 
-    <div class="scroll">
-      <div
-        v-if="currentScene"
-        class="scene-image"
-        :style="{ background: currentScene.imageColor }"
-      >
-        <span class="scene-letter">{{ currentScene.imageLetter }}</span>
-      </div>
-
-      <div v-if="currentScene" class="narration">
-        {{ currentScene.narration }}
-      </div>
-
-      <div v-if="currentScene" class="replies">
-        <QuickReply
-          v-for="r in currentScene.replies"
-          :key="r.id"
-          :text="r.text"
-          :affinity="r.affinity"
-          @pick="onPick(r)"
+    <div ref="scroller" class="scroll">
+      <div class="hero" :style="{ background: girlColor }">
+        <img
+          v-if="locationImage"
+          :src="locationImage"
+          :alt="title"
+          class="hero-bg"
         />
+        <div class="hero-grad" />
+        <img
+          v-if="girlImage"
+          :src="girlImage"
+          :alt="girlName"
+          class="hero-girl"
+        />
+        <span v-else class="hero-letter">{{ girlName.charAt(0) }}</span>
       </div>
+
+      <TransitionGroup name="msg" tag="div" class="msg-list">
+        <div
+          v-for="m in messages"
+          :key="m.id"
+          :class="['message', `message--${m.sender}`]"
+        >
+          <div class="bubble">
+            {{ m.text }}
+            <span class="bubble-meta">
+              <span class="time">{{ m.time }}</span>
+              <IconCheckRead v-if="m.sender === 'me'" class="check" />
+            </span>
+          </div>
+        </div>
+      </TransitionGroup>
+
+      <ChatTypingIndicator
+        v-if="isTyping"
+        :avatar-url="girlImage"
+        :avatar-color="girlColor"
+        :letter="girlName.charAt(0)"
+      />
+
+      <div v-if="dialogComplete" class="finale">
+        <div class="finale__emoji">💞</div>
+        <div class="finale__title">Свидание окончено</div>
+        <div class="finale__text">{{ girlName }} запомнит этот вечер</div>
+        <button class="finale__btn" type="button" @click="onBack">
+          К списку свиданий
+        </button>
+      </div>
+    </div>
+
+    <div v-if="hasReplies" class="replies">
+      <QuickReply
+        v-for="r in replies"
+        :key="r.id"
+        :text="r.text"
+        :cost="r.cost"
+        @pick="onPick(r)"
+      />
     </div>
   </div>
 </template>
@@ -114,57 +174,214 @@ function onPick(reply: Reply) {
 .scene {
   width: 100%;
   height: 100%;
-  background: #0a0a14;
-  color: #fff;
+  background: var(--bg);
+  color: var(--text);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .step-counter {
   font-size: 13px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-muted);
 }
 
 .scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 14px 18px;
+  padding: 14px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 .scroll::-webkit-scrollbar { display: none; }
 
-.scene-image {
+.hero {
+  position: relative;
   width: 100%;
-  aspect-ratio: 4 / 3;
-  border-radius: 16px;
-  margin-bottom: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  aspect-ratio: 3 / 4;
+  border-radius: 18px;
   overflow: hidden;
+  isolation: isolate;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
 }
 
-.scene-letter {
-  font-size: 90px;
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+
+.hero-grad {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0) 30%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+  z-index: 1;
+  pointer-events: none;
+}
+
+.hero-girl {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  object-position: bottom center;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.45));
+  -webkit-user-drag: none;
+}
+
+.hero-letter {
+  position: relative;
+  z-index: 2;
+  font-size: 88px;
   font-weight: 800;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.55);
+  padding-bottom: 20px;
 }
 
-.narration {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 14px;
-  padding: 14px 16px;
-  font-size: 13px;
-  line-height: 1.45;
-  color: rgba(255, 255, 255, 0.85);
-  margin-bottom: 16px;
+.msg-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.msg-enter-from {
+  opacity: 0;
+  transform: translateY(10px) scale(0.96);
+}
+.msg-enter-active {
+  transition: opacity 0.28s ease-out, transform 0.32s cubic-bezier(0.22, 1.2, 0.36, 1);
+}
+.msg-enter-to {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.message {
+  display: flex;
+  max-width: 100%;
+  transform-origin: bottom left;
+}
+.message--me {
+  justify-content: flex-end;
+  transform-origin: bottom right;
+}
+.message--them {
+  justify-content: flex-start;
+}
+
+.bubble {
+  max-width: 78%;
+  padding: 10px 14px;
+  border-radius: 18px;
+  font-size: 14px;
+  line-height: 1.35;
+  position: relative;
+  word-wrap: break-word;
+  white-space: pre-line;
+}
+
+.message--them .bubble {
+  background: var(--bubble-them-bg);
+  color: var(--bubble-them-text);
+  border-bottom-left-radius: 6px;
+  box-shadow: var(--shadow-sm);
+}
+
+.message--me .bubble {
+  background: var(--bubble-me-bg);
+  color: var(--bubble-me-text);
+  border-bottom-right-radius: 6px;
+  box-shadow: 0 4px 14px rgba(177, 75, 255, 0.22);
+}
+
+.bubble-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  margin-left: 8px;
+  vertical-align: bottom;
+  white-space: nowrap;
+  opacity: 0.7;
+}
+
+.message--them .bubble-meta { color: var(--text-muted); }
+.message--me .bubble-meta { color: rgba(255, 255, 255, 0.92); }
+
+.check {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 .replies {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  padding: 10px 12px 22px;
+  background: var(--bg);
 }
+
+.finale {
+  margin-top: 6px;
+  padding: 22px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+
+.finale__emoji {
+  font-size: 38px;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+
+.finale__title {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.finale__text {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 18px;
+}
+
+.finale__btn {
+  display: inline-block;
+  padding: 12px 22px;
+  border-radius: 12px;
+  border: none;
+  outline: none;
+  background: var(--gradient-brand-violet);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(177, 75, 255, 0.28);
+  transition: transform 0.1s ease;
+}
+
+.finale__btn:active { transform: scale(0.98); }
 </style>
