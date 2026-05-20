@@ -14,9 +14,10 @@ import { GIRLS, type GirlProfile } from '@/data/girls'
 import { useChatHistory } from '@/composables/useChatHistory'
 
 const router = useRouter()
-const { touchChat } = useChatHistory()
+const { touchChat, hasActiveChat } = useChatHistory()
 
-const characters = ref<GirlProfile[]>([...GIRLS])
+const swipeDeck = computed(() => GIRLS.filter((g) => !hasActiveChat(g.id)))
+const hasSwipeCards = computed(() => swipeDeck.value.length > 0)
 
 const index = ref(0)
 const total = ref(20) // total session swipes
@@ -27,8 +28,17 @@ const dragX = ref(0)
 const dragging = ref(false)
 const animating = ref(false)
 
-const current = computed(() => characters.value[index.value % characters.value.length])
-const next = computed(() => characters.value[(index.value + 1) % characters.value.length])
+const current = computed(() => {
+  const deck = swipeDeck.value
+  if (!deck.length) return undefined
+  return deck[index.value % deck.length]
+})
+
+const next = computed(() => {
+  const deck = swipeDeck.value
+  if (deck.length < 2) return undefined
+  return deck[(index.value + 1) % deck.length]
+})
 
 const matchVisible = ref(false)
 const matchedCharacter = ref<GirlProfile | null>(null)
@@ -204,8 +214,14 @@ onUnmounted(() => {
   <div class="swipe" :class="{ 'swipe--match': matchVisible }">
     <PageHeader title="Знакомства" @back="onBack" />
 
+    <div v-if="!hasSwipeCards" class="swipe-empty">
+      <p class="swipe-empty__title">Новых анкет пока нет</p>
+      <p class="swipe-empty__hint">Продолжите общение в чатах или загляните позже</p>
+      <button type="button" class="swipe-empty__btn" @click="onBack">На главную</button>
+    </div>
+
     <!-- card stack -->
-    <div class="stack" :class="{ 'stack--locked': matchVisible }">
+    <div v-else class="stack" :class="{ 'stack--locked': matchVisible }">
       <!-- next card (behind) -->
       <div v-if="next" ref="nextCard" class="card card--next" :key="`next-${next.id}-${index}`">
         <div class="card-image" :style="cardImageStyle(next)">
@@ -290,7 +306,7 @@ onUnmounted(() => {
     </div>
 
     <!-- action buttons -->
-    <div class="actions" :class="{ 'actions--locked': matchVisible }">
+    <div v-if="hasSwipeCards" class="actions" :class="{ 'actions--locked': matchVisible }">
       <button class="action action--skip" :disabled="animating" @click="onSkip">
         <IconCloseX class="action-icon action-icon--close" />
       </button>
@@ -331,6 +347,42 @@ onUnmounted(() => {
   flex-direction: column;
   position: relative;
   overflow: hidden;
+}
+
+.swipe-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 32px;
+  text-align: center;
+}
+
+.swipe-empty__title {
+  margin: 0 0 8px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.swipe-empty__hint {
+  margin: 0 0 20px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.swipe-empty__btn {
+  padding: 12px 24px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #b14bff 0%, #5b3df0 100%);
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .swipe > .stack,

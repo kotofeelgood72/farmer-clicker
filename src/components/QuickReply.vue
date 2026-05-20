@@ -34,7 +34,9 @@ defineEmits<{
   padding: 12px 14px;
   border-radius: 14px;
   outline: none;
-  background: transparent;
+  background: rgba(20, 16, 36, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   color: #e7c4e2;
   font-family: inherit;
   font-size: 13px;
@@ -42,9 +44,11 @@ defineEmits<{
   text-align: left;
   cursor: pointer;
   transition: transform 0.1s ease, background 0.15s ease;
-  border: 1px solid #221846;
+  border: none;
   width: 100%;
 }
+
+.reply:hover { background: rgba(30, 24, 50, 0.9); }
 
 .reply:active { transform: scale(0.98); }
 

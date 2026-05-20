@@ -134,14 +134,17 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
         class="chat"
         @click="onOpenChat(chat)"
       >
-        <div class="avatar" :style="{ background: chat.color }">
-          <img
-            v-if="girlImage(chat.id)"
-            :src="girlImage(chat.id)"
-            :alt="chat.name"
-            class="avatar-img"
-          />
-          <span v-else class="avatar-letter">{{ chat.name.charAt(0) }}</span>
+        <div class="avatar-wrap">
+          <div class="avatar" :style="{ background: chat.color }">
+            <img
+              v-if="girlImage(chat.id)"
+              :src="girlImage(chat.id)"
+              :alt="chat.name"
+              class="avatar-img"
+            />
+            <span v-else class="avatar-letter">{{ chat.name.charAt(0) }}</span>
+          </div>
+          <span class="online-dot" aria-label="онлайн" />
         </div>
 
         <div class="body">
@@ -299,6 +302,13 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   width: 100%;
 }
 
+.avatar-wrap {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+}
+
 .avatar {
   width: 52px;
   height: 52px;
@@ -306,8 +316,19 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
   overflow: hidden;
+}
+
+.online-dot {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #3ddc84;
+  border: 2px solid #0a0a14;
+  box-sizing: border-box;
 }
 
 .avatar-img {

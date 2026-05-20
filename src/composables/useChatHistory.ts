@@ -37,6 +37,14 @@ const recentChats = computed(() =>
   [...sessions.value].sort((a, b) => b.lastActivityAt - a.lastActivityAt),
 )
 
+const activeChatGirlIds = computed(
+  () => new Set(sessions.value.map((s) => s.girlId)),
+)
+
+function hasActiveChat(girlId: number): boolean {
+  return activeChatGirlIds.value.has(girlId)
+}
+
 function touchChat(
   girlId: number,
   options?: { preview?: string; unreadDelta?: number },
@@ -113,6 +121,8 @@ export function useChatHistory() {
   return {
     sessions,
     recentChats,
+    activeChatGirlIds,
+    hasActiveChat,
     touchChat,
     markChatRead,
   }

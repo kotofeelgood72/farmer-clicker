@@ -8,8 +8,10 @@ import { hasGirlDialog } from '@/data/dialogs'
 import { useChatHistory } from '@/composables/useChatHistory'
 import { useGirlChat, type ChatReply } from '@/composables/useGirlChat'
 import IconMenuDots from '~icons/solar/menu-dots-bold'
+import IconCheckRead from '~icons/solar/check-read-outline'
 import QuickReply from '@/components/QuickReply.vue'
 import ChatTypingIndicator from '@/components/ChatTypingIndicator.vue'
+import chatBgUrl from '@/assets/ui/chat-bg.png'
 
 type Sender = 'them' | 'me'
 interface Message {
@@ -155,7 +157,7 @@ function onMenu() {
 </script>
 
 <template>
-  <div class="chat-view">
+  <div class="chat-view" :style="{ '--chat-bg': `url(${chatBgUrl})` }">
     <header class="chat-header">
       <button class="back-btn" aria-label="назад" @click="onBack">
         <IconArrowLeft class="back-icon" />
@@ -186,15 +188,17 @@ function onMenu() {
     </header>
 
     <div ref="scroller" class="messages">
-      <div v-for="m in messages" :key="m.id" :class="['message', `message--${m.sender}`]">
-        <div class="bubble">
-          {{ m.text }}
-          <span class="bubble-meta">
-            <span class="time">{{ m.time }}</span>
-            <span v-if="m.sender === 'me'" class="check">✓✓</span>
-          </span>
+      <TransitionGroup name="msg" tag="div" class="msg-list">
+        <div v-for="m in messages" :key="m.id" :class="['message', `message--${m.sender}`]">
+          <div class="bubble">
+            {{ m.text }}
+            <span class="bubble-meta">
+              <span class="time">{{ m.time }}</span>
+              <IconCheckRead v-if="m.sender === 'me'" class="check" />
+            </span>
+          </div>
         </div>
-      </div>
+      </TransitionGroup>
       <ChatTypingIndicator
         v-if="isTyping"
         :avatar-url="girl.image"
@@ -217,9 +221,10 @@ function onMenu() {
 
 <style scoped>
 .chat-view {
+  position: relative;
   width: 100%;
   height: 100%;
-  background: #0a0a14;
+  background-color: #0a0a14;
   color: #fff;
   font-family:
     'Inter',
@@ -228,6 +233,25 @@ function onMenu() {
     sans-serif;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+.chat-view::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--chat-bg);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.5;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.chat-view > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* chat header */
@@ -345,6 +369,31 @@ function onMenu() {
   display: none;
 }
 
+.msg-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.msg-enter-from {
+  opacity: 0;
+  transform: translateY(10px) scale(0.96);
+}
+.msg-enter-active {
+  transition: opacity 0.28s ease-out, transform 0.32s cubic-bezier(0.22, 1.2, 0.36, 1);
+}
+.msg-enter-to {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.message {
+  transform-origin: bottom left;
+}
+.message--me {
+  transform-origin: bottom right;
+}
+
 .message {
   display: flex;
   max-width: 100%;
@@ -395,7 +444,9 @@ function onMenu() {
 }
 
 .check {
-  font-size: 10px;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 /* quick replies */
