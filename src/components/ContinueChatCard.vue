@@ -22,10 +22,7 @@ defineEmits<{
     :class="['chat-card', { 'chat-card--featured': featured }]"
     @click="$emit('open')"
   >
-    <div
-      class="chat-card__media"
-      :style="{ backgroundColor: accentColor ?? '#3a3a48' }"
-    >
+    <div class="chat-card__media" :style="{ backgroundColor: accentColor ?? '#3a3a48' }">
       <img
         v-if="imageSrc"
         class="chat-card__img"
