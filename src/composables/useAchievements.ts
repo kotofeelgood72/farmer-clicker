@@ -14,6 +14,7 @@ import { getGirlDialog } from '@/data/dialogs'
 import { girlChatStorageKey, isGirlChatCompleted } from '@/composables/useGirlChat'
 import { loadDialogState } from '@/composables/useDialogChat'
 import { isMeetingCompleted } from '@/composables/useMeetingChat'
+import { notifyAchievementUnlocked } from '@/composables/useInAppNotifications'
 import { REL_LEVEL_MAX } from '@/composables/useRelationshipLevel'
 
 const STORAGE_KEY = 'swipe-achievements-v1'
@@ -341,18 +342,21 @@ function isUnlocked(id: string, ctx: GameSnapshot): boolean {
 function syncUnlocked() {
   const ctx = buildSnapshot()
   const set = new Set(progress.value.unlockedIds)
-  let changed = false
+  const newlyUnlocked: string[] = []
 
   for (const def of ACHIEVEMENT_DEFINITIONS) {
     if (isUnlocked(def.id, ctx) && !set.has(def.id)) {
       set.add(def.id)
-      changed = true
+      newlyUnlocked.push(def.id)
     }
   }
 
-  if (changed) {
+  if (newlyUnlocked.length > 0) {
     progress.value = { ...progress.value, unlockedIds: [...set] }
     saveProgress(progress.value)
+    for (const id of newlyUnlocked) {
+      notifyAchievementUnlocked(id)
+    }
   }
   bump()
 }

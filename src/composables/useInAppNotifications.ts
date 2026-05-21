@@ -1,12 +1,7 @@
 import { computed, ref } from 'vue'
 import { GIRLS } from '@/data/girls'
 import { ACHIEVEMENT_DEFINITIONS } from '@/data/achievements'
-import {
-  clearAwaitingReply,
-  getAwaitingReplySessions,
-} from '@/composables/useChatHistory'
 import { getRelationshipLevel } from '@/composables/useRelationshipLevel'
-import { isGirlChatAwaitingReply } from '@/composables/useGirlChat'
 
 const LEVEL_STORAGE_KEY = 'swipe-rel-levels-v1'
 const SHOWN_STORAGE_KEY = 'swipe-notif-shown-v1'
@@ -167,82 +162,36 @@ export function notifyRelationshipLevel2(girlId: number) {
   })
 }
 
-export function notifySlowReply(girlId: number) {
-  const key = `slow-${girlId}`
-  if (hasShown(key)) return
-  rememberShown(key)
-  enqueue({
-    type: 'slow_reply',
-    title: girlName(girlId),
-    body: 'Вы долго не отвечаете',
-    to: `/chat/${girlId}`,
-    girlId,
-  })
+/** Зафиксировать текущие уровни без уведомлений (первый запуск). */
+export function initNotificationBaselines() {
+  const stored = loadRelationshipLevels()
+  if (Object.keys(stored).length > 0) return
+
+  const next: Record<string, number> = {}
+  for (const girl of GIRLS) {
+    next[String(girl.id)] = getRelationshipLevel(girl.id)
+  }
+  saveRelationshipLevels(next)
 }
 
-export function notifyMissesYou(girlId: number) {
-  const key = `miss-${girlId}`
-  if (hasShown(key)) return
-  rememberShown(key)
-  enqueue({
-    type: 'misses_you',
-    title: girlName(girlId),
-    body: 'По вам скучают 💜',
-    to: `/chat/${girlId}`,
-    girlId,
-  })
-}
-
-/** Сравнить уровни отношений и показать уведомление при переходе на 2. */
+/** Уведомление только при реальном переходе на уровень 2 (после завершения переписки). */
 export function checkRelationshipLevelUps() {
   const stored = loadRelationshipLevels()
+  const hasBaseline = Object.keys(stored).length > 0
   const next: Record<string, number> = { ...stored }
 
   for (const girl of GIRLS) {
     const level = getRelationshipLevel(girl.id)
-    const prev = stored[String(girl.id)] ?? 1
-    if (prev < 2 && level >= 2) {
+    const key = String(girl.id)
+    const prev = stored[key]
+
+    if (hasBaseline && (prev ?? 1) < 2 && level >= 2) {
       notifyRelationshipLevel2(girl.id)
     }
-    next[String(girl.id)] = level
+    next[key] = level
   }
 
   saveRelationshipLevels(next)
-}
-
-/** Вызвать после refreshAchievements — показать новые достижения. */
-export function notifyNewAchievements(previousIds: Set<string>, currentIds: string[]) {
-  for (const id of currentIds) {
-    if (!previousIds.has(id)) notifyAchievementUnlocked(id)
-  }
-}
-
-const SLOW_REPLY_MS = 2 * 60 * 1000
-const MISSES_YOU_MS = 4 * 60 * 1000
-
-/**
- * @param activeChatGirlId `null` — можно показывать; `-1` — пользователь в любом чате; `>0` — в чате с этой девушкой.
- */
-export function checkUnreadChatReminders(activeChatGirlId: number | null) {
-  if (activeChatGirlId !== null) return
-
-  const now = Date.now()
-
-  for (const session of getAwaitingReplySessions()) {
-    if (!isGirlChatAwaitingReply(session.girlId)) {
-      clearAwaitingReply(session.girlId)
-      continue
-    }
-
-    const since = session.awaitingReplySince ?? session.lastActivityAt
-    const elapsed = now - since
-
-    if (elapsed >= MISSES_YOU_MS) {
-      notifyMissesYou(session.girlId)
-    } else if (elapsed >= SLOW_REPLY_MS) {
-      notifySlowReply(session.girlId)
-    }
-  }
 }
 
 export function resetInAppNotificationsStore() {

@@ -7,7 +7,7 @@ import IosNotificationBanner from '@/components/IosNotificationBanner.vue'
 import { useAchievements } from '@/composables/useAchievements'
 import { useDailyRewards } from '@/composables/useDailyRewards'
 import { useNotificationWatcher } from '@/composables/useNotificationWatcher'
-import { useRouteTransition } from '@/composables/useRouteTransition'
+import { routeComponentKey, useRouteTransition } from '@/composables/useRouteTransition'
 import stageBgUrl from '@/assets/ui/background.png'
 
 const route = useRoute()
@@ -66,7 +66,7 @@ watch(
           <div class="route-view" :class="{ 'route-view--booting': isBootLoading }">
             <RouterView v-slot="{ Component }">
               <Transition :name="transitionName">
-                <component :is="Component" :key="route.fullPath" class="route-page" />
+                <component :is="Component" :key="routeComponentKey(route)" class="route-page" />
               </Transition>
             </RouterView>
           </div>

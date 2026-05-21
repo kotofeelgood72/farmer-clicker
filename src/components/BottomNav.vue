@@ -17,7 +17,11 @@ defineEmits<{
 
 <template>
   <nav class="bottom-nav">
-    <button :class="['nav-item', { active: active === 'home' }]" @click="$emit('navigate', 'home')">
+    <button
+      data-tour="nav-home"
+      :class="['nav-item', { active: active === 'home' }]"
+      @click="$emit('navigate', 'home')"
+    >
       <span class="icon-box">
         <IconHome class="nav-icon" />
       </span>
@@ -25,6 +29,7 @@ defineEmits<{
     </button>
 
     <button
+      data-tour="nav-chats"
       :class="['nav-item', { active: active === 'chats' }]"
       @click="$emit('navigate', 'chats')"
     >
@@ -36,6 +41,7 @@ defineEmits<{
     </button>
 
     <button
+      data-tour="nav-swipe"
       :class="['nav-item', 'nav-item--swipe', { active: active === 'swipe' }]"
       aria-label="свайп"
       @click="$emit('navigate', 'swipe')"
@@ -46,6 +52,7 @@ defineEmits<{
     </button>
 
     <button
+      data-tour="nav-dates"
       :class="['nav-item', { active: active === 'dates' }]"
       @click="$emit('navigate', 'dates')"
     >
@@ -56,6 +63,7 @@ defineEmits<{
     </button>
 
     <button
+      data-tour="nav-profile"
       :class="['nav-item', { active: active === 'profile' }]"
       @click="$emit('navigate', 'profile')"
     >

@@ -3,6 +3,11 @@ import type { RouteLocationNormalized } from 'vue-router'
 
 export type RouteTransitionName = 'route-slide-forward' | 'route-slide-back'
 
+/** Ключ экрана: path без query, чтобы табы внутри страницы не пересоздавали view. */
+export function routeComponentKey(route: RouteLocationNormalized): string {
+  return route.path
+}
+
 /** Порядок вкладок в нижней навигации (слева направо) */
 const TAB_ROUTE_NAMES = ['main', 'chats', 'swipe', 'dates', 'profile'] as const
 

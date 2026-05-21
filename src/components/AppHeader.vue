@@ -57,7 +57,6 @@ const { selectedAvatar } = useUserAvatar()
   gap: 12px;
   background: var(--header-bg);
   border-bottom: 1px solid var(--hairline);
-  margin-bottom: 16px;
 }
 
 .user {

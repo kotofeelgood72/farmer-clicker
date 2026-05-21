@@ -137,7 +137,7 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
             />
             <span v-else class="thumb-letter">{{ d.girlName.charAt(0) }}</span>
 
-            <span v-if="d.status === 'new'" class="badge-new">NEW</span>
+            <span v-if="d.status === 'new'" class="badge-new">НОВОЕ</span>
             <span v-else-if="d.status === 'locked'" class="badge-lock">
               <IconLock class="lock-icon" />
             </span>

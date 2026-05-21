@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onActivated, onMounted } from 'vue'
+import { computed, nextTick, onActivated, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AppHeader from '@/components/AppHeader.vue'
 import BottomNav from '@/components/BottomNav.vue'
@@ -11,6 +11,7 @@ import { Swiper, SwiperSlide } from 'swiper/vue'
 import { GIRLS, getGirlCardImage } from '@/data/girls'
 import { useChatHistory } from '@/composables/useChatHistory'
 import { useDailyRewards } from '@/composables/useDailyRewards'
+import { tryStartMainOnboarding } from '@/composables/useOnboarding'
 import { useDiamonds } from '@/composables/useDiamonds'
 import { useEnergy } from '@/composables/useEnergy'
 import { getRelationshipLevel } from '@/composables/useRelationshipLevel'
@@ -35,17 +36,32 @@ const tileIcons: Record<string, string> = {
 const router = useRouter()
 const { energy } = useEnergy()
 const { diamonds } = useDiamonds()
-const { streakDay, cards, canClaimToday, syncAndShowModal, openModal } = useDailyRewards()
+const { streakDay, cards, canClaimToday, syncAndShowModal, openModal, isModalOpen } =
+  useDailyRewards()
 
 function refreshDailyModal() {
   syncAndShowModal()
 }
 
+function scheduleOnboarding() {
+  void tryStartMainOnboarding({ isDailyModalOpen: () => isModalOpen.value })
+}
+
 onMounted(() => {
-  void nextTick(refreshDailyModal)
+  void nextTick(() => {
+    refreshDailyModal()
+    scheduleOnboarding()
+  })
 })
 
-onActivated(refreshDailyModal)
+onActivated(() => {
+  refreshDailyModal()
+  scheduleOnboarding()
+})
+
+watch(isModalOpen, (open, wasOpen) => {
+  if (wasOpen && !open) scheduleOnboarding()
+})
 
 const user = { nickname: 'Новичок' }
 
@@ -120,6 +136,7 @@ function onTile(id: string) {
   <div class="main">
     <EnterItem :order="0">
       <AppHeader
+        data-tour="header"
         :nickname="user.nickname"
         :energy="energy"
         :diamonds="diamonds"
@@ -159,6 +176,7 @@ function onTile(id: string) {
         :order="2"
         tag="section"
         class="section section--rewards"
+        data-tour="rewards"
         :class="{ 'section--rewards-tappable': canClaimToday }"
         @click="onOpenDailyRewards"
       >
@@ -211,7 +229,7 @@ function onTile(id: string) {
       </EnterItem>
 
       <!-- Tiles -->
-      <EnterItem :order="3" tag="section" class="section">
+      <EnterItem :order="3" tag="section" class="section" data-tour="tiles">
         <div class="tiles-row">
           <EnterItem
             v-for="(t, i) in tiles"
@@ -230,7 +248,7 @@ function onTile(id: string) {
         </div>
       </EnterItem>
 
-      <BackgroundLobbyChat />
+      <BackgroundLobbyChat data-tour="lobby" />
     </div>
 
     <BottomNav
@@ -255,7 +273,7 @@ function onTile(id: string) {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 0 16px 8px;
+  padding: 16px 16px 8px;
   display: flex;
   flex-direction: column;
 }

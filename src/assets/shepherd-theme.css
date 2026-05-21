@@ -1,0 +1,158 @@
+/* Shepherd.js — Свайпай и Флиртуй */
+
+/* Затемняющая маска — SVG без размеров по умолчанию схлопывается до ~300×150 */
+.shepherd-modal-overlay-container {
+  position: fixed;
+  inset: 0;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none;
+  max-height: none;
+  z-index: 9998;
+  pointer-events: none;
+}
+
+.shepherd-modal-overlay-container.shepherd-modal-is-visible {
+  opacity: 1;
+}
+
+.shepherd-modal-overlay-container path {
+  fill: rgba(26, 20, 36, 0.78);
+  pointer-events: auto;
+}
+
+/* Подсказки тура — поверх маски, геометрия и clip задаются в useOnboarding */
+.shepherd-element.shepherd-step-heartline,
+.shepherd-element.shepherd-step-dock {
+  position: fixed !important;
+  transform: none !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+  overflow: hidden;
+  z-index: 10000;
+  pointer-events: auto;
+  border-radius: 14px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(26, 20, 36, 0.18);
+  font-family: var(--font-sans);
+  color: var(--text);
+}
+
+.shepherd-element.shepherd-centered.shepherd-step-dock,
+.shepherd-element.shepherd-step-welcome {
+  position: fixed !important;
+  transform: none !important;
+  margin: 0 !important;
+  z-index: 10000;
+  pointer-events: auto;
+}
+
+.shepherd-arrow {
+  display: none !important;
+}
+
+.shepherd-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 0 10px 0;
+  background: transparent;
+}
+
+.shepherd-has-cancel-icon .shepherd-header {
+  padding: 0 6px 0 10px;
+}
+
+.shepherd-title {
+  flex: 1;
+  margin: 0;
+  padding-right: 4px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.25;
+}
+
+.shepherd-cancel-icon {
+  position: relative;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface-soft);
+  color: var(--text-muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.shepherd-cancel-icon:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.shepherd-text {
+  padding: 4px 10px 6px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.shepherd-footer {
+  display: flex;
+  padding: 0 10px 0;
+  gap: 8px;
+  justify-content: flex-end;
+  border-top: none;
+  margin-top: 0;
+}
+
+.shepherd-button {
+  border: none;
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--gradient-brand);
+  color: var(--text-inverse);
+  transition:
+    opacity 0.15s ease,
+    transform 0.1s ease;
+}
+
+.shepherd-button:active {
+  transform: scale(0.98);
+}
+
+.shepherd-button-secondary {
+  background: var(--surface-soft);
+  color: var(--text-muted);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.shepherd-button:not(.shepherd-button-secondary):hover {
+  opacity: 0.92;
+}
+
+/* Активный блок — только порядок слоёв, без обводки (подсветка = вырез в маске) */
+.shepherd-target-active {
+  position: relative;
+  z-index: 5;
+}
+
+.shepherd-enabled.shepherd-target {
+  pointer-events: auto;
+}
+
+.shepherd-target-click-disabled {
+  pointer-events: none;
+}
