@@ -54,14 +54,28 @@ function onOpenChat() {
   void router.push(`/chat/${girlId.value}`)
 }
 
+const gallery = computed(() => girl.value.gallery)
+const photosUnlocked = computed(() => relationship.value.chat.complete)
+
 const showPhoto = ref(false)
+const photoSrc = ref<string | null>(null)
 
 function openPhoto() {
-  if (girl.value.bgImage) showPhoto.value = true
+  if (girl.value.bgImage) {
+    photoSrc.value = girl.value.bgImage
+    showPhoto.value = true
+  }
+}
+
+function openGalleryPhoto(src: string) {
+  if (!photosUnlocked.value) return
+  photoSrc.value = src
+  showPhoto.value = true
 }
 
 function closePhoto() {
   showPhoto.value = false
+  photoSrc.value = null
 }
 </script>
 
@@ -157,6 +171,30 @@ function closePhoto() {
         </div>
       </section>
 
+      <!-- Галерея -->
+      <section v-if="gallery.length" class="card gallery-card">
+        <h3 class="card-title">Личные фото</h3>
+        <div class="gallery-grid" :class="{ 'gallery-grid--locked': !photosUnlocked }">
+          <button
+            v-for="(src, index) in gallery"
+            :key="index"
+            type="button"
+            class="gallery-item"
+            :disabled="!photosUnlocked"
+            :aria-label="photosUnlocked ? `Фото ${index + 1}` : 'Фото заблокировано'"
+            @click="openGalleryPhoto(src)"
+          >
+            <img :src="src" :alt="`${girl.name} — фото ${index + 1}`" class="gallery-item__img" />
+            <div v-if="!photosUnlocked" class="gallery-item__lock">
+              <IconLock class="gallery-item__lock-icon" />
+            </div>
+          </button>
+        </div>
+        <p v-if="!photosUnlocked" class="gallery-hint">
+          Заверши переписку, чтобы открыть личные фото
+        </p>
+      </section>
+
       <!-- unlocks -->
       <section v-if="nextUnlocks.length" class="card">
         <h3 class="card-title">Следующий уровень откроет:</h3>
@@ -176,8 +214,8 @@ function closePhoto() {
     <Teleport to=".phone-screen">
       <Transition name="photo-fade">
         <div
-          v-if="showPhoto && girl.bgImage"
-          class="photo-modal"
+          v-if="showPhoto && photoSrc"
+          class="photo-modal phone-modal-overlay"
           role="dialog"
           aria-modal="true"
           :aria-label="`Фото ${girl.name}`"
@@ -186,8 +224,8 @@ function closePhoto() {
           <button type="button" class="photo-modal__close" aria-label="закрыть" @click="closePhoto">
             <IconClose />
           </button>
-          <div class="photo-modal__frame">
-            <img :src="girl.bgImage" :alt="girl.name" class="photo-modal__img" />
+          <div class="photo-modal__frame modal-media-frame">
+            <img :src="photoSrc" :alt="girl.name" class="photo-modal__img" />
           </div>
         </div>
       </Transition>
@@ -405,6 +443,68 @@ function closePhoto() {
   background: linear-gradient(90deg, #ff7a3d 0%, #ffb83d 100%);
 }
 
+/* gallery */
+.gallery-card .card-title {
+  margin-bottom: 12px;
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.gallery-grid--locked .gallery-item__img {
+  filter: blur(6px) brightness(0.75);
+}
+
+.gallery-item {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border: none;
+  outline: none;
+  padding: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface-soft);
+  cursor: pointer;
+}
+
+.gallery-item:disabled {
+  cursor: default;
+}
+
+.gallery-item__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  -webkit-user-drag: none;
+}
+
+.gallery-item__lock {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 6, 16, 0.35);
+}
+
+.gallery-item__lock-icon {
+  width: 22px;
+  height: 22px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.gallery-hint {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.35;
+  text-align: center;
+}
+
 /* unlocks */
 .unlock-list {
   list-style: none;
@@ -442,8 +542,9 @@ function closePhoto() {
   align-items: center;
   justify-content: center;
   padding: 56px 16px 24px;
-  background: rgba(8, 6, 16, 0.88);
-  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
 
 .photo-modal__close {
@@ -455,8 +556,9 @@ function closePhoto() {
   border: none;
   outline: none;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text);
+  box-shadow: 0 2px 12px rgba(26, 20, 36, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -471,22 +573,14 @@ function closePhoto() {
 .photo-modal__frame {
   max-width: 100%;
   max-height: 100%;
-  overflow: hidden;
   border-radius: 12px;
-  background: #080610;
-  line-height: 0;
-  box-shadow: var(--shadow-lg);
 }
 
 .photo-modal__img {
-  display: block;
   max-width: 100%;
   max-height: 100%;
   width: auto;
   height: auto;
-  /* Срез артефактов ~1–2px по краям в bg.png */
-  transform: scale(1.03);
-  transform-origin: center center;
   -webkit-user-drag: none;
 }
 

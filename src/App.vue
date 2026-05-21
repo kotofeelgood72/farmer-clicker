@@ -6,13 +6,22 @@ import IosNotificationBanner from '@/components/IosNotificationBanner.vue'
 import { useAchievements } from '@/composables/useAchievements'
 import { useDailyRewards } from '@/composables/useDailyRewards'
 import { useNotificationWatcher } from '@/composables/useNotificationWatcher'
+import { useRouteTransition } from '@/composables/useRouteTransition'
+import stageBgUrl from '@/assets/ui/background.png'
 
 const route = useRoute()
 const router = useRouter()
 const { syncAndShowModal } = useDailyRewards()
 const { refreshAchievements } = useAchievements()
+const { transitionName, setTransition } = useRouteTransition()
 
 useNotificationWatcher()
+
+router.beforeEach((to, from) => {
+  if (from.matched.length) {
+    setTransition(from, to)
+  }
+})
 
 function onAppRoute(path: string) {
   refreshAchievements()
@@ -34,12 +43,18 @@ watch(
 </script>
 
 <template>
-  <div class="stage">
+  <div class="stage" :style="{ backgroundImage: `url(${stageBgUrl})` }">
     <div class="phone">
       <div class="phone-frame">
         <div class="phone-screen">
           <div class="dynamic-island" />
-          <RouterView />
+          <div class="route-view">
+            <RouterView v-slot="{ Component }">
+              <Transition :name="transitionName">
+                <component :is="Component" :key="route.fullPath" class="route-page" />
+              </Transition>
+            </RouterView>
+          </div>
           <IosNotificationBanner />
           <DailyRewardsModal />
         </div>
@@ -78,8 +93,10 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background:
-    radial-gradient(circle at 50% 50%, #1a1a1a 0%, #050505 100%);
+  background-color: #0a0a0a;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 /* iPhone 17 Pro frame — 393x852 logical screen */
@@ -113,6 +130,7 @@ html, body {
   position: relative;
   width: 100%;
   height: 100%;
+  --phone-inner-radius: var(--radius-inner);
   border-radius: var(--radius-inner);
   overflow: hidden;
   background: #000;
@@ -130,6 +148,69 @@ html, body {
   border-radius: 999px;
   z-index: 100;
   pointer-events: none;
+}
+
+.route-view {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.route-page {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.route-fade-enter-active,
+.route-fade-leave-active,
+.route-slide-forward-enter-active,
+.route-slide-forward-leave-active,
+.route-slide-back-enter-active,
+.route-slide-back-leave-active {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  will-change: transform, opacity;
+}
+
+.route-fade-enter-active,
+.route-fade-leave-active {
+  transition: opacity 0.22s ease;
+}
+
+.route-fade-enter-from,
+.route-fade-leave-to {
+  opacity: 0;
+}
+
+.route-slide-forward-enter-active,
+.route-slide-forward-leave-active,
+.route-slide-back-enter-active,
+.route-slide-back-leave-active {
+  transition:
+    transform 0.32s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.32s ease;
+}
+
+.route-slide-forward-enter-from {
+  transform: translateX(100%);
+}
+
+.route-slide-forward-leave-to {
+  transform: translateX(-28%);
+  opacity: 0.92;
+}
+
+.route-slide-back-enter-from {
+  transform: translateX(-28%);
+  opacity: 0.92;
+}
+
+.route-slide-back-leave-to {
+  transform: translateX(100%);
 }
 
 /* Scale the phone down when viewport can't fit it */

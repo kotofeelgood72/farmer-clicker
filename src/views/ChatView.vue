@@ -291,8 +291,8 @@ function onGoToDate() {
       />
     </div>
 
-    <div v-if="chatComplete" class="completion-overlay">
-      <div class="completion-card">
+    <div v-if="chatComplete" class="completion-overlay phone-modal-overlay">
+      <div class="completion-card modal-surface">
         <div class="completion-emoji">💞</div>
         <div class="completion-title">Скоро на свидание</div>
         <div class="completion-text">
@@ -598,9 +598,7 @@ function onGoToDate() {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(20, 18, 30, 0.55);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: rgba(20, 18, 30, 0.94);
   animation: completion-fade 0.32s ease-out;
 }
 
@@ -614,10 +612,8 @@ function onGoToDate() {
   max-width: 320px;
   padding: 28px 24px 24px;
   background: var(--surface);
-  border: 1px solid var(--border);
   border-radius: 22px;
   text-align: center;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
   animation: completion-pop 0.4s cubic-bezier(0.22, 1.2, 0.36, 1);
 }
 

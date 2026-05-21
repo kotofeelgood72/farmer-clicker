@@ -7,6 +7,8 @@ export interface GirlProfile {
   image?: string
   /** Полноразмерное фото из папки девушки: bg.png */
   bgImage?: string
+  /** Фото из папки gallery, отсортированы по номеру файла */
+  gallery: string[]
   color: string
   /** 1–3 — «острота» профиля (перчики на карточке) */
   rating: number
@@ -44,7 +46,29 @@ const bgById = Object.fromEntries(
     .filter((entry): entry is [number, string] => entry !== null),
 ) as Record<number, string>
 
-const GIRL_ROWS: Omit<GirlProfile, 'image' | 'bgImage'>[] = [
+const galleryModules = import.meta.glob<string>('@/assets/girls/*/gallery/*.png', {
+  eager: true,
+  import: 'default',
+})
+
+const galleryById = Object.entries(galleryModules).reduce<Record<number, { index: number; url: string }[]>>(
+  (acc, [path, url]) => {
+    const match = path.match(/girls\/(\d+)\/gallery\/(\d+)\.png$/)
+    if (!match) return acc
+    const id = Number(match[1])
+    const index = Number(match[2])
+    if (!acc[id]) acc[id] = []
+    acc[id].push({ index, url })
+    return acc
+  },
+  {},
+)
+
+for (const id of Object.keys(galleryById)) {
+  galleryById[Number(id)]!.sort((a, b) => a.index - b.index)
+}
+
+const GIRL_ROWS: Omit<GirlProfile, 'image' | 'bgImage' | 'gallery'>[] = [
   {
     id: 1,
     name: 'Алина',
@@ -231,6 +255,7 @@ export const GIRLS: GirlProfile[] = GIRL_ROWS.map((girl) => ({
   ...girl,
   image: imagesById[girl.id],
   bgImage: bgById[girl.id],
+  gallery: (galleryById[girl.id] ?? []).map((item) => item.url),
 }))
 
 export function getGirlById(id: number): GirlProfile | undefined {

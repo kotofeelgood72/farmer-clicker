@@ -51,13 +51,13 @@ function onBackdrop() {
   <Transition name="daily-fade">
     <div
       v-if="isModalOpen"
-      class="daily-backdrop"
+      class="daily-backdrop phone-modal-overlay"
       role="dialog"
       aria-modal="true"
       aria-label="Ежедневные награды"
       @click.self="onBackdrop"
     >
-      <div class="daily-sheet">
+      <div class="daily-sheet modal-surface">
         <div class="daily-head">
           <h2 class="daily-title">Ежедневные награды</h2>
           <p class="daily-sub">День {{ streakDay }} из 7</p>
@@ -111,8 +111,7 @@ function onBackdrop() {
   position: absolute;
   inset: 0;
   z-index: 200;
-  background: rgba(26, 20, 36, 0.45);
-  backdrop-filter: blur(6px);
+  background: rgba(26, 20, 36, 0.92);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -123,10 +122,8 @@ function onBackdrop() {
   width: 100%;
   max-width: 340px;
   background: var(--surface);
-  border: 1px solid var(--border);
   border-radius: 22px;
   padding: 20px 16px 18px;
-  box-shadow: var(--shadow-lg);
   color: var(--text);
 }
 

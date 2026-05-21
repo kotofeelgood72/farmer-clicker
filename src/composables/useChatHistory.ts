@@ -3,6 +3,9 @@ import { isGirlChatAwaitingReply } from './useGirlChat'
 
 export interface ChatSession {
   girlId: number
+  /** Фиксированный порядок в списке — время первого появления чата. */
+  createdAt: number
+  /** Время последнего сообщения (для подписи в списке). */
   lastActivityAt: number
   lastPreview?: string
   unread: number
@@ -18,9 +21,15 @@ function loadSessions(): ChatSession[] {
     if (!raw) return []
     const parsed = JSON.parse(raw) as ChatSession[]
     if (!Array.isArray(parsed)) return []
-    return parsed.filter(
+    const list = parsed.filter(
       (s) => typeof s.girlId === 'number' && typeof s.lastActivityAt === 'number',
     )
+    const base = Date.now() - list.length * 1000
+    return list.map((s, index) => ({
+      ...s,
+      createdAt:
+        typeof s.createdAt === 'number' ? s.createdAt : base + index,
+    }))
   } catch {
     return []
   }
@@ -76,7 +85,7 @@ export function resetChatHistoryStore() {
 }
 
 const recentChats = computed(() =>
-  [...sessions.value].sort((a, b) => b.lastActivityAt - a.lastActivityAt),
+  [...sessions.value].sort((a, b) => a.createdAt - b.createdAt),
 )
 
 /**
@@ -106,13 +115,19 @@ function touchChat(
   const now = Date.now()
   const idx = sessions.value.findIndex((s) => s.girlId === girlId)
   const prev = idx >= 0 ? sessions.value[idx] : null
-  const unread =
-    (prev?.unread ?? 0) + (options?.unreadDelta ?? 0)
+  const unread = (prev?.unread ?? 0) + (options?.unreadDelta ?? 0)
+  const preview =
+    options?.preview !== undefined ? options.preview : prev?.lastPreview
+  const previewChanged =
+    options?.preview !== undefined && options.preview !== prev?.lastPreview
+  const hasUnreadDelta = (options?.unreadDelta ?? 0) !== 0
 
   const next: ChatSession = {
     girlId,
-    lastActivityAt: now,
-    lastPreview: options?.preview ?? prev?.lastPreview,
+    createdAt: prev?.createdAt ?? now,
+    lastActivityAt:
+      !prev || previewChanged || hasUnreadDelta ? now : prev.lastActivityAt,
+    lastPreview: preview,
     unread: Math.max(0, unread),
     awaitingReplySince: prev?.awaitingReplySince ?? null,
   }

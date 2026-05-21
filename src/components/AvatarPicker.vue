@@ -27,7 +27,7 @@ function onSelect(url: string) {
   <Teleport to="body">
     <Transition name="picker-fade">
       <div v-if="show" class="picker-backdrop" @click.self="onBackdrop">
-        <div class="picker-sheet" role="dialog" aria-modal="true" aria-label="Выбор аватара">
+        <div class="picker-sheet modal-surface modal-surface--dark" role="dialog" aria-modal="true" aria-label="Выбор аватара">
           <div class="picker-head">
             <h2 class="picker-title">Выберите аватар</h2>
             <button type="button" class="picker-close" aria-label="закрыть" @click="onBackdrop">
@@ -59,22 +59,20 @@ function onSelect(url: string) {
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: rgba(8, 6, 16, 0.75);
-  backdrop-filter: blur(6px);
+  background: rgba(8, 6, 16, 0.92);
   display: flex;
   align-items: flex-end;
   justify-content: center;
   padding: 16px;
+  overflow: hidden;
 }
 
 .picker-sheet {
   width: 100%;
   max-width: 420px;
   background: #14141f;
-  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 20px 20px 18px 18px;
   padding: 16px 16px 20px;
-  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
 }
 
 .picker-head {

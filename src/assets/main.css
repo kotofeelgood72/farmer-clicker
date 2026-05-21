@@ -53,3 +53,54 @@
   padding: 0;
   font-weight: normal;
 }
+
+/*
+ * Модалки внутри «экрана телефона» — без белых линий на скруглённых углах
+ * (клип phone-screen + полупрозрачный backdrop + border на surface).
+ */
+.phone-screen {
+  --phone-inner-radius: 50px;
+}
+
+.phone-modal-overlay {
+  border-radius: var(--phone-inner-radius);
+  overflow: hidden;
+  isolation: isolate;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+.modal-surface {
+  border: none !important;
+  background-clip: padding-box;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  box-shadow:
+    var(--shadow-lg),
+    0 0 0 1px var(--border);
+}
+
+.modal-surface--dark {
+  box-shadow:
+    0 -8px 32px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.modal-media-frame {
+  border: none;
+  overflow: hidden;
+  background: #000;
+  line-height: 0;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+.modal-media-frame img {
+  display: block;
+  transform: scale(1.06);
+  transform-origin: center center;
+}

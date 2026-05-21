@@ -29,7 +29,7 @@ function onClose() { emit('close') }
     <Transition name="match-fade">
       <div
         v-if="show"
-        class="match-overlay"
+        class="match-overlay phone-modal-overlay"
         :style="{ '--swipe-bg': `url(${swipeBgUrl})` }"
       >
         <div class="content">

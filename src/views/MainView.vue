@@ -16,7 +16,6 @@ import { getRelationshipLevel } from '@/composables/useRelationshipLevel'
 import 'swiper/css'
 
 import tileHeart from '@/assets/ui/circle-heart.png'
-import tileShield from '@/assets/ui/checkmark.png'
 import tileMedal from '@/assets/ui/medalion.png'
 
 import rewardStone from '@/assets/ui/stone.png'
@@ -29,7 +28,6 @@ import IconLock from '~icons/solar/lock-bold'
 
 const tileIcons: Record<string, string> = {
   heart: tileHeart,
-  shield: tileShield,
   shop: tileMedal,
 }
 
@@ -96,7 +94,6 @@ function onOpenChat(girlId: number) {
 
 const tiles = [
   { id: 'dates', title: 'Свидания', subtitle: 'Новое событие', icon: 'heart' as const },
-  { id: 'tasks', title: 'Задания', subtitle: 'Доступно 4', icon: 'shield' as const },
   { id: 'shop', title: 'Магазин', subtitle: 'Алмазы', icon: 'shop' as const },
 ]
 
@@ -468,7 +465,7 @@ function onTile(id: string) {
 /* Tiles */
 .tiles-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
 }
 
