@@ -14,6 +14,7 @@ import IconGift from '~icons/solar/gift-bold'
 import IconShop from '~icons/solar/shop-2-bold'
 import IconLock from '~icons/solar/lock-bold'
 import IconCheck from '~icons/solar/check-circle-bold'
+import EnterItem from '@/components/EnterItem.vue'
 
 const router = useRouter()
 const {
@@ -73,14 +74,16 @@ function rarityLabel(r: AchievementRarity) {
 
 <template>
   <div class="page">
-    <PageHeader title="Достижения" @back="onBack">
-      <template #right>
-        <span class="counter">{{ totals.unlocked }}/{{ totals.total }}</span>
-      </template>
-    </PageHeader>
+    <EnterItem :order="0" solo>
+      <PageHeader title="Достижения" @back="onBack">
+        <template #right>
+          <span class="counter">{{ totals.unlocked }}/{{ totals.total }}</span>
+        </template>
+      </PageHeader>
+    </EnterItem>
 
-    <div class="scroll">
-      <div class="filters">
+    <div class="scroll page-enter">
+      <EnterItem :order="1" class="filters">
         <button
           v-for="f in rarityFilters"
           :key="f.value"
@@ -89,9 +92,16 @@ function rarityLabel(r: AchievementRarity) {
         >
           {{ f.label }}
         </button>
-      </div>
+      </EnterItem>
 
-      <section v-for="g in grouped" :key="g.key" class="group">
+      <EnterItem
+        v-for="(g, gi) in grouped"
+        :key="g.key"
+        :index="gi"
+        :base="2"
+        tag="section"
+        class="group"
+      >
         <h2 class="group-title">{{ g.title }}</h2>
         <div class="list">
           <div
@@ -123,9 +133,9 @@ function rarityLabel(r: AchievementRarity) {
             </div>
           </div>
         </div>
-      </section>
+      </EnterItem>
 
-      <div v-if="!grouped.length" class="empty">Ничего не найдено</div>
+      <EnterItem v-if="!grouped.length" :order="2" class="empty">Ничего не найдено</EnterItem>
     </div>
   </div>
 </template>
@@ -136,7 +146,6 @@ function rarityLabel(r: AchievementRarity) {
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   display: flex;
   flex-direction: column;
 }

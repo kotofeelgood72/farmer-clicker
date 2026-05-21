@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import CoverImage from '@/components/CoverImage.vue'
+import { IMAGE_ASPECT } from '@/constants/imageSlots'
+
 defineProps<{
   name: string
   status: string
@@ -22,14 +25,20 @@ defineEmits<{
     :class="['chat-card', { 'chat-card--featured': featured }]"
     @click="$emit('open')"
   >
-    <div class="chat-card__media" :style="{ backgroundColor: accentColor ?? '#3a3a48' }">
-      <img
+    <div
+      class="chat-card__media"
+      :style="{
+        backgroundColor: accentColor ?? '#3a3a48',
+        aspectRatio: featured ? IMAGE_ASPECT.CHAT_CARD_FEATURED : IMAGE_ASPECT.CHAT_CARD,
+      }"
+    >
+      <CoverImage
         v-if="imageSrc"
-        class="chat-card__img"
+        fill
+        image-slot="card"
         :src="imageSrc"
         :alt="name"
-        draggable="false"
-        decoding="async"
+        position="center top"
       />
       <span v-if="badge" class="chat-card__badge">{{ badge }}</span>
       <span v-if="letter" class="chat-card__letter">{{ letter }}</span>
@@ -67,25 +76,12 @@ defineEmits<{
 .chat-card__media {
   position: relative;
   width: 100%;
-  aspect-ratio: 3 / 4.15;
   border-radius: 16px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   transition: transform 0.15s ease;
-}
-
-.chat-card__img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center top;
-  pointer-events: none;
-  -webkit-user-drag: none;
-  user-select: none;
 }
 
 .chat-card__letter {
@@ -173,7 +169,6 @@ defineEmits<{
 
 /* одна карточка на главной (макет) */
 .chat-card--featured .chat-card__media {
-  aspect-ratio: 16 / 11;
   border-radius: 18px;
 }
 

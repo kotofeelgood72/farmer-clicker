@@ -140,3 +140,26 @@ export function getGirlRelationship(girlId: number): GirlRelationship {
 export function getRelationshipLevel(girlId: number): number {
   return getGirlRelationship(girlId).overallLevel
 }
+
+/**
+ * Что реально даёт прогресс в текущей игре:
+ *
+ * Уровень 1 (переписка) — только полоска/сердца по ходу диалога в чате.
+ * Пока переписка не завершена, галерея и свидания заблокированы.
+ *
+ * Завершение переписки → overallLevel 2:
+ * - личные фото в профиле девушки;
+ * - свидания с ней во вкладке «Свидания» (после isGirlChatCompleted).
+ *
+ * Уровень 2 (свидание) — прогресс по сценам встреч (meeting/dialog),
+ * отдельных «уровней 3» и новых фич за прогресс нет.
+ */
+export function getNextRelationshipUnlocks(rel: GirlRelationship): string[] {
+  if (!rel.chat.complete) {
+    return [
+      'Личные фото в профиле',
+      'Свидания с этой девушкой',
+    ]
+  }
+  return []
+}

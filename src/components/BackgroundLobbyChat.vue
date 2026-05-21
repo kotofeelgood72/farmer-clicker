@@ -17,6 +17,12 @@ const loopMessages = [...LOBBY_CHAT_MESSAGES, ...LOBBY_CHAT_MESSAGES]
       <div class="lobby-fade lobby-fade--top" />
       <div class="lobby-fade lobby-fade--bottom" />
 
+      <div class="lobby-watermark" aria-hidden="true">
+        <div class="lobby-watermark__stamp">
+          <span class="lobby-watermark__text">Скоро</span>
+        </div>
+      </div>
+
       <div class="lobby-track">
         <div
           v-for="(msg, index) in loopMessages"
@@ -121,6 +127,47 @@ const loopMessages = [...LOBBY_CHAT_MESSAGES, ...LOBBY_CHAT_MESSAGES]
 .lobby-fade--bottom {
   bottom: 0;
   background: linear-gradient(0deg, var(--surface) 0%, transparent 100%);
+}
+
+.lobby-watermark {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  pointer-events: none;
+}
+
+.lobby-watermark__stamp {
+  position: relative;
+  padding: 14px 26px;
+  border: 4px solid #c62828;
+  transform: rotate(-12deg);
+  opacity: 0.72;
+  user-select: none;
+}
+
+.lobby-watermark__stamp::before {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border: 2px solid #c62828;
+  pointer-events: none;
+}
+
+.lobby-watermark__text {
+  display: block;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #c62828;
+  line-height: 1;
+  padding-left: 0.18em;
 }
 
 .lobby-track {

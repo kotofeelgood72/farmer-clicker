@@ -3,7 +3,10 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppButton from '@/components/AppButton.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import CoverImage from '@/components/CoverImage.vue'
+import { IMAGE_ASPECT } from '@/constants/imageSlots'
 import BottomNav from '@/components/BottomNav.vue'
+import EnterItem from '@/components/EnterItem.vue'
 
 import IconLock from '~icons/solar/lock-bold'
 import {
@@ -77,11 +80,13 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 
 <template>
   <div class="dates">
-    <PageHeader title="Свидания" @back="onBack" />
+    <EnterItem :order="0" solo>
+      <PageHeader title="Свидания" @back="onBack" />
+    </EnterItem>
 
     <div class="dates-main">
-    <div class="scroll">
-      <div class="tabs">
+    <div class="scroll page-enter">
+      <EnterItem :order="1" class="tabs">
         <button
           :class="['tab', { active: tab === 'available' }]"
           @click="tab = 'available'"
@@ -94,25 +99,38 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
         >
           Прошедшие
         </button>
-      </div>
+      </EnterItem>
 
-      <div class="list">
-        <button
-          v-for="d in visible"
+      <div :key="tab" class="list">
+        <EnterItem
+          v-for="(d, i) in visible"
           :key="d.id"
+          :index="i"
+          :base="2"
+        >
+        <button
           :class="['card', { locked: d.status === 'locked' }]"
           :disabled="d.status === 'locked'"
           @click="onOpen(d)"
         >
-          <div class="thumb" :style="{ background: d.girlColor }">
-            <img
+          <div
+            class="thumb"
+            :style="{ background: d.girlColor, aspectRatio: IMAGE_ASPECT.PORTRAIT }"
+          >
+            <CoverImage
               v-if="d.locationImage"
+              fill
+              image-slot="card"
               :src="d.locationImage"
               :alt="d.title"
               class="thumb-bg"
             />
-            <img
+            <CoverImage
               v-if="d.girlImage"
+              fill
+              image-slot="preview"
+              fit="contain"
+              position="bottom center"
               :src="d.girlImage"
               :alt="d.girlName"
               class="thumb-girl"
@@ -129,9 +147,10 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
             <div class="character">{{ d.girlName }}</div>
           </div>
         </button>
+        </EnterItem>
       </div>
 
-      <div v-if="!visible.length" class="empty">Пока ничего нет</div>
+      <EnterItem v-if="!visible.length" :order="2" class="empty">Пока ничего нет</EnterItem>
     </div>
 
     <div v-if="showNoDateModal" class="dates-overlay phone-modal-overlay">
@@ -160,7 +179,6 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   display: flex;
   flex-direction: column;
 }
@@ -188,7 +206,6 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(253, 247, 250, 0.97);
   animation: dates-overlay-fade 0.32s ease-out;
 }
 
@@ -264,12 +281,18 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 /* List — 2-column grid, vertical cards (image on top, content below) */
 .list {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.list :deep(.enter-item) {
+  width: 100%;
+  min-width: 0;
 }
 
 .card {
   width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   padding: 0;
@@ -296,7 +319,6 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 .thumb {
   position: relative;
   width: 100%;
-  aspect-ratio: 3 / 4;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -305,26 +327,14 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   isolation: isolate;
 }
 
-.thumb-bg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.thumb :deep(.thumb-bg) {
   z-index: 0;
   filter: brightness(0.75);
 }
 
-.thumb-girl {
-  position: relative;
+.thumb :deep(.thumb-girl) {
   z-index: 1;
-  height: 100%;
-  width: auto;
-  max-width: 100%;
-  object-fit: contain;
-  object-position: bottom center;
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
-  -webkit-user-drag: none;
 }
 
 .thumb-letter {

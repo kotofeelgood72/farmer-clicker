@@ -15,6 +15,7 @@ import { useChatHistory } from '@/composables/useChatHistory'
 import { SWIPE_ENERGY_COST, useEnergy } from '@/composables/useEnergy'
 import { useAchievements } from '@/composables/useAchievements'
 import { usePlayerStats } from '@/composables/usePlayerStats'
+import EnterItem from '@/components/EnterItem.vue'
 
 const router = useRouter()
 const { touchChat, hasActiveChat } = useChatHistory()
@@ -214,13 +215,15 @@ onUnmounted(() => {
 
 <template>
   <div class="swipe" :class="{ 'swipe--match': matchVisible }">
-    <PageHeader title="Знакомства" @back="onBack" />
+    <EnterItem :order="0" solo>
+      <PageHeader title="Знакомства" @back="onBack" />
+    </EnterItem>
 
-    <div v-if="!hasSwipeCards" class="swipe-empty">
+    <EnterItem v-if="!hasSwipeCards" :order="1" solo class="swipe-empty page-enter">
       <p class="swipe-empty__title">Новых анкет пока нет</p>
       <p class="swipe-empty__hint">Продолжите общение в чатах или загляните позже</p>
       <button type="button" class="swipe-empty__btn" @click="onBack">На главную</button>
-    </div>
+    </EnterItem>
 
     <!-- card stack -->
     <div v-else class="stack" :class="{ 'stack--locked': matchVisible }">
@@ -308,7 +311,7 @@ onUnmounted(() => {
     </div>
 
     <!-- action buttons -->
-    <div v-if="hasSwipeCards" class="actions" :class="{ 'actions--locked': matchVisible }">
+    <EnterItem v-if="hasSwipeCards" :order="1" solo class="actions page-enter" :class="{ 'actions--locked': matchVisible }">
       <button class="action action--skip" :disabled="animating" @click="onSkip">
         <IconCloseX class="action-icon action-icon--close" />
       </button>
@@ -326,7 +329,7 @@ onUnmounted(() => {
           {{ energy }}
         </span>
       </button>
-    </div>
+    </EnterItem>
 
     <MatchOverlay
       :show="matchVisible"
@@ -346,11 +349,6 @@ onUnmounted(() => {
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family:
-    'Inter',
-    system-ui,
-    -apple-system,
-    sans-serif;
   display: flex;
   flex-direction: column;
   position: relative;

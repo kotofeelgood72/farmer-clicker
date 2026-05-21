@@ -4,14 +4,19 @@ import { useRoute, useRouter } from 'vue-router'
 
 import PageHeader from '@/components/PageHeader.vue'
 import AppButton from '@/components/AppButton.vue'
+import CoverImage from '@/components/CoverImage.vue'
+import { IMAGE_ASPECT } from '@/constants/imageSlots'
 import IconClose from '~icons/solar/close-circle-bold'
 import IconHeart from '~icons/solar/heart-bold'
 import IconHeartLine from '~icons/solar/heart-linear'
-import IconCheckCircle from '~icons/solar/check-circle-linear'
 import IconLock from '~icons/solar/lock-bold'
 import { GIRLS } from '@/data/girls'
 import { isGirlChatCompleted } from '@/composables/useGirlChat'
-import { getGirlRelationship } from '@/composables/useRelationshipLevel'
+import {
+  getGirlRelationship,
+  getNextRelationshipUnlocks,
+} from '@/composables/useRelationshipLevel'
+import EnterItem from '@/components/EnterItem.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -31,16 +36,7 @@ const relationship = computed(() => {
 
 const dialogComplete = computed(() => relationship.value.chat.complete)
 
-const nextUnlocks = computed(() => {
-  const { chat, date } = relationship.value
-  if (!chat.complete) {
-    return ['Новые диалоги', 'Личные фото', 'Доступ к свиданию']
-  }
-  if (!date.complete) {
-    return ['Уникальные сцены', 'Особые концовки', 'Максимум отношений']
-  }
-  return []
-})
+const nextUnlocks = computed(() => getNextRelationshipUnlocks(relationship.value))
 
 onActivated(() => {
   relTick.value++
@@ -81,11 +77,13 @@ function closePhoto() {
 
 <template>
   <div class="rel">
-    <PageHeader :title="girl.name" @back="onBack" />
+    <EnterItem :order="0" solo>
+      <PageHeader :title="girl.name" @back="onBack" />
+    </EnterItem>
 
-    <div class="scroll">
+    <div class="scroll page-enter">
       <!-- Top card: avatar + level -->
-      <section class="card top-card">
+      <EnterItem :order="1" tag="section" class="card top-card">
         <button
           v-if="girl.bgImage"
           type="button"
@@ -94,7 +92,13 @@ function closePhoto() {
           :aria-label="`Фото ${girl.name}`"
           @click="openPhoto"
         >
-          <img :src="girl.image ?? girl.bgImage" :alt="girl.name" class="avatar-img" />
+          <CoverImage
+            :src="girl.avatarImage ?? girl.cardImage ?? girl.bgImage!"
+            :alt="girl.name"
+            class="avatar-cover"
+            image-slot="avatar"
+            position="center top"
+          />
         </button>
         <div v-else class="avatar" :style="{ background: girl.color }">
           <span class="avatar-letter">{{ girl.name.charAt(0) }}</span>
@@ -103,10 +107,10 @@ function closePhoto() {
           <div class="rel-label">Уровень отношений</div>
           <div class="rel-level">Уровень {{ relationship.overallLevel }}</div>
         </div>
-      </section>
+      </EnterItem>
 
       <!-- Уровень 1: переписка -->
-      <section class="card level-card">
+      <EnterItem :order="2" tag="section" class="card level-card">
         <div class="level-head">
           <span class="level-tag">Уровень 1</span>
           <span class="level-name">Переписка</span>
@@ -129,10 +133,12 @@ function closePhoto() {
         <div class="xp-bar">
           <span class="xp-fill xp-fill--chat" :style="{ width: relationship.chat.percent + '%' }" />
         </div>
-      </section>
+      </EnterItem>
 
       <!-- Уровень 2: свидание -->
-      <section
+      <EnterItem
+        :order="3"
+        tag="section"
         class="card level-card"
         :class="{ 'level-card--locked': !relationship.date.unlocked }"
       >
@@ -169,22 +175,27 @@ function closePhoto() {
           <IconLock class="level-locked__icon" />
           <p class="level-locked__text">Заверши переписку, чтобы открыть свидание</p>
         </div>
-      </section>
+      </EnterItem>
 
       <!-- Галерея -->
-      <section v-if="gallery.length" class="card gallery-card">
+      <EnterItem v-if="gallery.length" :order="4" tag="section" class="card gallery-card">
         <h3 class="card-title">Личные фото</h3>
         <div class="gallery-grid" :class="{ 'gallery-grid--locked': !photosUnlocked }">
           <button
-            v-for="(src, index) in gallery"
+            v-for="(photo, index) in gallery"
             :key="index"
             type="button"
             class="gallery-item"
             :disabled="!photosUnlocked"
             :aria-label="photosUnlocked ? `Фото ${index + 1}` : 'Фото заблокировано'"
-            @click="openGalleryPhoto(src)"
+            @click="openGalleryPhoto(photo.full)"
           >
-            <img :src="src" :alt="`${girl.name} — фото ${index + 1}`" class="gallery-item__img" />
+            <CoverImage
+              :src="photo.thumb"
+              :alt="`${girl.name} — фото ${index + 1}`"
+              :aspect-ratio="IMAGE_ASPECT.PORTRAIT"
+              image-slot="gallery"
+            />
             <div v-if="!photosUnlocked" class="gallery-item__lock">
               <IconLock class="gallery-item__lock-icon" />
             </div>
@@ -193,22 +204,22 @@ function closePhoto() {
         <p v-if="!photosUnlocked" class="gallery-hint">
           Заверши переписку, чтобы открыть личные фото
         </p>
-      </section>
+      </EnterItem>
 
       <!-- unlocks -->
-      <section v-if="nextUnlocks.length" class="card">
-        <h3 class="card-title">Следующий уровень откроет:</h3>
+      <EnterItem v-if="nextUnlocks.length" :order="5" tag="section" class="card">
+        <h3 class="card-title">После переписки откроется:</h3>
         <ul class="unlock-list">
           <li v-for="u in nextUnlocks" :key="u" class="unlock-item">
-            <IconCheckCircle class="unlock-icon" />
+            <IconLock class="unlock-icon unlock-icon--pending" />
             <span>{{ u }}</span>
           </li>
         </ul>
-      </section>
+      </EnterItem>
 
-      <div v-if="!dialogComplete" class="cta">
+      <EnterItem v-if="!dialogComplete" :order="6" class="cta">
         <AppButton variant="violet" @click="onOpenChat">В чат</AppButton>
-      </div>
+      </EnterItem>
     </div>
 
     <Teleport to=".phone-screen">
@@ -239,7 +250,6 @@ function closePhoto() {
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   display: flex;
   flex-direction: column;
 }
@@ -300,10 +310,9 @@ function closePhoto() {
   transform: scale(0.96);
 }
 
-.avatar-img {
+.avatar-cover {
   width: 100%;
   height: 100%;
-  object-fit: cover;
 }
 
 .avatar-letter {
@@ -454,13 +463,12 @@ function closePhoto() {
   gap: 8px;
 }
 
-.gallery-grid--locked .gallery-item__img {
+.gallery-grid--locked .cover-image {
   filter: blur(6px) brightness(0.75);
 }
 
 .gallery-item {
   position: relative;
-  aspect-ratio: 3 / 4;
   border: none;
   outline: none;
   padding: 0;
@@ -472,14 +480,6 @@ function closePhoto() {
 
 .gallery-item:disabled {
   cursor: default;
-}
-
-.gallery-item__img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  -webkit-user-drag: none;
 }
 
 .gallery-item__lock {
@@ -542,9 +542,6 @@ function closePhoto() {
   align-items: center;
   justify-content: center;
   padding: 56px 16px 24px;
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
 }
 
 .photo-modal__close {

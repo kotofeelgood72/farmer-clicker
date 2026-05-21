@@ -111,7 +111,6 @@ function onBackdrop() {
   position: absolute;
   inset: 0;
   z-index: 200;
-  background: rgba(26, 20, 36, 0.92);
   display: flex;
   align-items: center;
   justify-content: center;

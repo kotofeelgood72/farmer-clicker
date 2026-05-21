@@ -1,3 +1,10 @@
+export interface GalleryPhoto {
+  /** Уменьшенный кадр под сетку (без даунскейла в браузере) */
+  thumb: string
+  /** Исходный PNG для полноэкранного просмотра */
+  full: string
+}
+
 export interface GirlProfile {
   id: number
   name: string
@@ -7,11 +14,31 @@ export interface GirlProfile {
   image?: string
   /** Полноразмерное фото из папки девушки: bg.png */
   bgImage?: string
-  /** Фото из папки gallery, отсортированы по номеру файла */
-  gallery: string[]
+  /** WebP ~280px для карточек «Продолжить общение» (bg.card.webp) */
+  cardImage?: string
+  /** WebP ~128px для круглых аватаров ({id}.avatar.webp) */
+  avatarImage?: string
+  /** WebP без жёсткого кропа для превью со contain */
+  previewImage?: string
+  gallery: GalleryPhoto[]
   color: string
   /** 1–3 — «острота» профиля (перчики на карточке) */
   rating: number
+}
+
+function mapGirlAssets(
+  modules: Record<string, string>,
+  pattern: RegExp,
+): Record<number, string> {
+  return Object.fromEntries(
+    Object.entries(modules)
+      .map(([path, url]) => {
+        const match = path.match(pattern)
+        if (!match) return null
+        return [Number(match[1]), url] as const
+      })
+      .filter((entry): entry is [number, string] => entry !== null),
+  )
 }
 
 const imageModules = import.meta.glob<string>('@/assets/girls/*/*.png', {
@@ -68,7 +95,65 @@ for (const id of Object.keys(galleryById)) {
   galleryById[Number(id)]!.sort((a, b) => a.index - b.index)
 }
 
-const GIRL_ROWS: Omit<GirlProfile, 'image' | 'bgImage' | 'gallery'>[] = [
+const cardBgModules = import.meta.glob<string>('@/assets/girls/*/bg.card.webp', {
+  eager: true,
+  import: 'default',
+})
+const previewBgModules = import.meta.glob<string>('@/assets/girls/*/bg.preview.webp', {
+  eager: true,
+  import: 'default',
+})
+const avatarVariantModules = import.meta.glob<string>('@/assets/girls/*/*.avatar.webp', {
+  eager: true,
+  import: 'default',
+})
+const galleryThumbModules = import.meta.glob<string>('@/assets/girls/*/gallery/*.gallery.webp', {
+  eager: true,
+  import: 'default',
+})
+
+const cardBgById = mapGirlAssets(cardBgModules, /girls\/(\d+)\/bg\.card\.webp$/)
+const previewBgById = mapGirlAssets(previewBgModules, /girls\/(\d+)\/bg\.preview\.webp$/)
+const avatarVariantById = mapGirlAssets(
+  avatarVariantModules,
+  /girls\/(\d+)\/(\d+)\.avatar\.webp$/,
+)
+
+const galleryThumbById = Object.entries(galleryThumbModules).reduce<
+  Record<number, { index: number; url: string }[]>
+>((acc, [path, url]) => {
+  const match = path.match(/girls\/(\d+)\/gallery\/(\d+)\.gallery\.webp$/)
+  if (!match) return acc
+  const id = Number(match[1])
+  const index = Number(match[2])
+  if (!acc[id]) acc[id] = []
+  acc[id].push({ index, url })
+  return acc
+}, {})
+
+for (const id of Object.keys(galleryThumbById)) {
+  galleryThumbById[Number(id)]!.sort((a, b) => a.index - b.index)
+}
+
+const portraitPreviewById = Object.fromEntries(
+  Object.entries(
+    import.meta.glob<string>('@/assets/girls/*/*.preview.webp', {
+      eager: true,
+      import: 'default',
+    }),
+  )
+    .map(([path, url]) => {
+      const match = path.match(/girls\/(\d+)\/(\d+)\.preview\.webp$/)
+      if (!match || match[1] !== match[2]) return null
+      return [Number(match[1]), url] as const
+    })
+    .filter((entry): entry is [number, string] => entry !== null),
+) as Record<number, string>
+
+const GIRL_ROWS: Omit<
+  GirlProfile,
+  'image' | 'bgImage' | 'cardImage' | 'avatarImage' | 'previewImage' | 'gallery'
+>[] = [
   {
     id: 1,
     name: 'Алина',
@@ -251,13 +336,38 @@ const GIRL_ROWS: Omit<GirlProfile, 'image' | 'bgImage' | 'gallery'>[] = [
   },
 ]
 
-export const GIRLS: GirlProfile[] = GIRL_ROWS.map((girl) => ({
-  ...girl,
-  image: imagesById[girl.id],
-  bgImage: bgById[girl.id],
-  gallery: (galleryById[girl.id] ?? []).map((item) => item.url),
-}))
+export const GIRLS: GirlProfile[] = GIRL_ROWS.map((girl) => {
+  const fullGallery = galleryById[girl.id] ?? []
+  const thumbs = galleryThumbById[girl.id] ?? []
+  return {
+    ...girl,
+    image: imagesById[girl.id],
+    bgImage: bgById[girl.id],
+    cardImage: cardBgById[girl.id],
+    avatarImage: avatarVariantById[girl.id],
+    previewImage: previewBgById[girl.id] ?? portraitPreviewById[girl.id],
+    gallery: fullGallery.map((item) => ({
+      full: item.url,
+      thumb: thumbs.find((t) => t.index === item.index)?.url ?? item.url,
+    })),
+  }
+})
 
 export function getGirlById(id: number): GirlProfile | undefined {
   return GIRLS.find((g) => g.id === id)
+}
+
+/** Карточка на главной — уменьшенный WebP, иначе тяжёлый bg.png */
+export function getGirlCardImage(girl: GirlProfile): string | undefined {
+  return girl.cardImage ?? girl.bgImage ?? girl.image
+}
+
+/** Круглый аватар в списке чатов */
+export function getGirlAvatarImage(girl: GirlProfile): string | undefined {
+  return girl.avatarImage ?? girl.image ?? girl.cardImage
+}
+
+/** Портрет girls/<id>/<id>.png — для свиданий (не bg.png) */
+export function getGirlPortraitImage(girl: GirlProfile): string | undefined {
+  return portraitPreviewById[girl.id] ?? girl.image
 }

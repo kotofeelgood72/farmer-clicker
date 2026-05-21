@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import AppButton from '@/components/AppButton.vue'
+import EnterItem from '@/components/EnterItem.vue'
 import mainBgUrl from '@/assets/ui/main-bg.png'
 import logoUrl from '@/assets/ui/logo.png'
 
@@ -13,13 +14,21 @@ function onStart() {
 
 <template>
   <div class="login" :style="{ '--main-bg': `url(${mainBgUrl})` }">
-    <div class="content">
-      <img class="logo" :src="logoUrl" alt="HEARTLINE" width="96" height="96" />
+    <div class="content page-enter">
+      <EnterItem :order="0" solo class="logo-row">
+        <img class="logo" :src="logoUrl" alt="HEARTLINE" width="96" height="96" />
+      </EnterItem>
 
-      <h1 class="title">HEARTLINE</h1>
-      <p class="tagline">Симулятор отношений<br />и общения</p>
+      <EnterItem :order="1" solo>
+        <h1 class="title">HEARTLINE</h1>
+      </EnterItem>
+      <EnterItem :order="2" solo>
+        <p class="tagline">Симулятор отношений<br />и общения</p>
+      </EnterItem>
 
-      <AppButton @click="onStart">Начать игру</AppButton>
+      <EnterItem :order="3" solo>
+        <AppButton @click="onStart">Начать игру</AppButton>
+      </EnterItem>
     </div>
   </div>
 </template>
@@ -36,11 +45,6 @@ function onStart() {
   background-position: center;
   background-repeat: no-repeat;
   color: var(--text);
-  font-family:
-    'Inter',
-    system-ui,
-    -apple-system,
-    sans-serif;
   display: flex;
   flex-direction: column;
 }
@@ -56,10 +60,21 @@ function onStart() {
   padding: 0 24px 48px;
 }
 
+.content :deep(.enter-item) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.logo-row {
+  margin-bottom: 24px;
+}
+
 .logo {
+  display: block;
   width: 96px;
   height: 96px;
-  margin-bottom: 24px;
   object-fit: contain;
   filter: drop-shadow(0 8px 24px rgba(177, 75, 255, 0.22));
 }

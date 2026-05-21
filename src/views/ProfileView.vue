@@ -5,6 +5,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import AppButton from '@/components/AppButton.vue'
 import BottomNav from '@/components/BottomNav.vue'
 import AvatarPicker from '@/components/AvatarPicker.vue'
+import EnterItem from '@/components/EnterItem.vue'
 import { useUserAvatar } from '@/composables/useUserAvatar'
 import { useChatHistory } from '@/composables/useChatHistory'
 import { resetAllGameProgress } from '@/composables/useGameReset'
@@ -91,36 +92,38 @@ function onResetProgress() {
 <template>
   <div class="profile">
     <div class="cover-bg"></div>
-    <PageHeader title="Профиль" @back="onBack" />
-    <div class="scroll">
+    <EnterItem :order="0" solo>
+      <PageHeader title="Профиль" @back="onBack" />
+    </EnterItem>
+    <div class="scroll page-enter">
       <!-- cover + avatar -->
-      <section class="cover">
-        <div class="avatar-wrap">
-          <div class="avatar">
+      <EnterItem :order="1" tag="section" class="cover">
+        <button type="button" class="avatar-wrap" aria-label="изменить аватар" @click="onEditAvatar">
+          <span class="avatar">
             <img
               v-if="selectedAvatar"
               :src="selectedAvatar"
               alt=""
               class="avatar-img"
             />
-            <span v-else>{{ user.nickname.charAt(0) }}</span>
-          </div>
-          <button class="edit-btn" aria-label="изменить" @click="onEditAvatar">
+            <span v-else class="avatar-letter">{{ user.nickname.charAt(0) }}</span>
+          </span>
+          <span class="edit-btn" aria-hidden="true">
             <IconPen class="edit-icon" />
-          </button>
-        </div>
-      </section>
+          </span>
+        </button>
+      </EnterItem>
 
       <!-- identity -->
-      <section class="identity">
+      <EnterItem :order="2" tag="section" class="identity">
         <div class="nick-row">
           <h1 class="nickname">{{ user.nickname }}</h1>
           <IconStar class="nick-badge" />
         </div>
-      </section>
+      </EnterItem>
 
       <!-- Stats card -->
-      <section class="card">
+      <EnterItem :order="3" tag="section" class="card">
         <div class="card-head">
           <span class="head-icon head-icon--violet">
             <IconChart />
@@ -140,10 +143,10 @@ function onResetProgress() {
             <div class="stat-value">{{ s.value }}</div>
           </div>
         </div>
-      </section>
+      </EnterItem>
 
       <!-- Achievements card -->
-      <section class="card">
+      <EnterItem :order="4" tag="section" class="card">
         <div class="card-head">
           <span class="head-icon head-icon--violet">
             <IconStar />
@@ -165,14 +168,15 @@ function onResetProgress() {
             <div class="ach-label">{{ a.label }}</div>
           </div>
         </div>
-      </section>
+      </EnterItem>
 
-      <section class="reset-section">
+      <EnterItem :order="5" tag="section" class="reset-section">
         <AppButton variant="danger" @click="onResetProgress">Сброс</AppButton>
-      </section>
+      </EnterItem>
     </div>
 
     <BottomNav
+      class="profile__nav"
       active="profile"
       :chats-badge="unreadTotal > 0 ? unreadTotal : undefined"
       @navigate="onNav"
@@ -194,10 +198,10 @@ function onResetProgress() {
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   display: flex;
   flex-direction: column;
   position: relative;
+  overflow: hidden;
 }
 
 /* full-bleed cover background — sits behind the header and the cover section */
@@ -231,20 +235,27 @@ function onResetProgress() {
 
 .scroll {
   flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
-  padding-bottom: 8px;
+  padding: 0 12px 20px;
   position: relative;
   z-index: 1;
 }
 
+.profile__nav {
+  flex-shrink: 0;
+}
+
 .reset-section {
-  margin: 4px 12px 16px;
+  margin: 4px 0 8px;
 }
 .scroll::-webkit-scrollbar { display: none; }
 
 /* --- cover area (avatar host) --- */
 .cover {
   position: relative;
+  z-index: 3;
   height: 140px;
 }
 
@@ -255,23 +266,35 @@ function onResetProgress() {
   transform: translateX(-50%);
   width: 120px;
   height: 120px;
-  z-index: 2;
+  z-index: 5;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .avatar {
+  display: block;
   width: 100%;
   height: 100%;
   border-radius: 50%;
   background: var(--gradient-brand);
   border: 4px solid var(--surface);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.avatar-letter {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  height: 100%;
   font-size: 48px;
   font-weight: 800;
   color: #fff;
-  overflow: hidden;
-  box-shadow: var(--shadow);
 }
 
 .avatar-img {
@@ -284,23 +307,25 @@ function onResetProgress() {
   position: absolute;
   right: 4px;
   bottom: 4px;
+  z-index: 2;
   width: 32px;
   height: 32px;
   border-radius: 50%;
   background: var(--gradient-brand-violet);
   border: 3px solid var(--surface);
-  outline: none;
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  pointer-events: none;
 }
 
 .edit-icon { width: 14px; height: 14px; }
 
 /* --- identity --- */
 .identity {
+  position: relative;
+  z-index: 1;
   padding: 48px 16px 12px;
   text-align: center;
 }
@@ -326,7 +351,7 @@ function onResetProgress() {
 
 /* --- cards --- */
 .card {
-  margin: 0 12px 14px;
+  margin: 0 0 14px;
   padding: 14px 14px 16px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -378,15 +403,16 @@ function onResetProgress() {
 /* stats */
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
 
 .stat-cell {
+  min-width: 0;
   background: var(--surface-soft);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 12px 4px 10px;
+  padding: 12px 6px 10px;
   display: flex;
   flex-direction: column;
   align-items: center;

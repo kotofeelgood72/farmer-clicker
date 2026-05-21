@@ -5,9 +5,10 @@ import AppHeader from '@/components/AppHeader.vue'
 import BottomNav from '@/components/BottomNav.vue'
 import BackgroundLobbyChat from '@/components/BackgroundLobbyChat.vue'
 import ContinueChatCard from '@/components/ContinueChatCard.vue'
+import EnterItem from '@/components/EnterItem.vue'
 
 import { Swiper, SwiperSlide } from 'swiper/vue'
-import { GIRLS } from '@/data/girls'
+import { GIRLS, getGirlCardImage } from '@/data/girls'
 import { useChatHistory } from '@/composables/useChatHistory'
 import { useDailyRewards } from '@/composables/useDailyRewards'
 import { useDiamonds } from '@/composables/useDiamonds'
@@ -74,7 +75,7 @@ interface ContinueChatItem {
 const continueChats = computed<ContinueChatItem[]>(() =>
   recentChats.value.map((session) => {
     const girl = GIRLS.find((g) => g.id === session.girlId)
-    const photo = girl?.bgImage ?? girl?.image
+    const photo = girl ? getGirlCardImage(girl) : undefined
     return {
       girlId: session.girlId,
       name: girl?.name ?? '???',
@@ -117,18 +118,20 @@ function onTile(id: string) {
 
 <template>
   <div class="main">
-    <AppHeader
-      :nickname="user.nickname"
-      :energy="energy"
-      :diamonds="diamonds"
-      @profile="router.push('/profile')"
-      @shop="router.push({ path: '/shop', query: { tab: 'diamonds' } })"
-      @shop-energy="router.push({ path: '/shop', query: { tab: 'energy' } })"
-    />
+    <EnterItem :order="0">
+      <AppHeader
+        :nickname="user.nickname"
+        :energy="energy"
+        :diamonds="diamonds"
+        @profile="router.push('/profile')"
+        @shop="router.push({ path: '/shop', query: { tab: 'diamonds' } })"
+        @shop-energy="router.push({ path: '/shop', query: { tab: 'energy' } })"
+      />
+    </EnterItem>
 
-    <div class="scroll">
+    <div class="scroll page-enter">
       <!-- Продолжить общение -->
-      <section v-if="continueChats.length" class="section section--continue">
+      <EnterItem v-if="continueChats.length" :order="1" tag="section" class="section section--continue">
         <h2 class="section-title">Продолжить общение</h2>
         <Swiper
           class="continue-row"
@@ -149,10 +152,12 @@ function onTile(id: string) {
             />
           </SwiperSlide>
         </Swiper>
-      </section>
+      </EnterItem>
 
       <!-- Ежедневные награды -->
-      <section
+      <EnterItem
+        :order="2"
+        tag="section"
         class="section section--rewards"
         :class="{ 'section--rewards-tappable': canClaimToday }"
         @click="onOpenDailyRewards"
@@ -203,20 +208,27 @@ function onTile(id: string) {
             </div>
           </SwiperSlide>
         </Swiper>
-      </section>
+      </EnterItem>
 
       <!-- Tiles -->
-      <section class="section">
+      <EnterItem :order="3" tag="section" class="section">
         <div class="tiles-row">
-          <div v-for="t in tiles" :key="t.id" class="tile" @click="onTile(t.id)">
+          <EnterItem
+            v-for="(t, i) in tiles"
+            :key="t.id"
+            :index="i"
+            :base="4"
+            class="tile"
+            @click="onTile(t.id)"
+          >
             <div class="tile-icon">
               <img :src="tileIcons[t.icon]" :alt="t.title" />
             </div>
             <div class="tile-title">{{ t.title }}</div>
             <div class="tile-subtitle">{{ t.subtitle }}</div>
-          </div>
+          </EnterItem>
         </div>
-      </section>
+      </EnterItem>
 
       <BackgroundLobbyChat />
     </div>
@@ -237,11 +249,6 @@ function onTile(id: string) {
   flex-direction: column;
   background: var(--bg);
   color: var(--text);
-  font-family:
-    'Inter',
-    system-ui,
-    -apple-system,
-    sans-serif;
 }
 
 .scroll {
@@ -465,11 +472,13 @@ function onTile(id: string) {
 /* Tiles */
 .tiles-row {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
 .tile {
+  width: 100%;
+  min-width: 0;
   position: relative;
   background: var(--surface);
   border: 1px solid var(--border);

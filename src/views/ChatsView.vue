@@ -3,6 +3,8 @@ import { computed, nextTick, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import BottomNav from '@/components/BottomNav.vue'
+import CoverImage from '@/components/CoverImage.vue'
+import EnterItem from '@/components/EnterItem.vue'
 
 import IconSearch from '~icons/solar/magnifer-linear'
 import IconClose from '~icons/solar/close-circle-bold'
@@ -12,7 +14,7 @@ import {
   useChatHistory,
 } from '@/composables/useChatHistory'
 import { isGirlChatAwaitingReply, isGirlChatCompleted } from '@/composables/useGirlChat'
-import { GIRLS } from '@/data/girls'
+import { GIRLS, getGirlAvatarImage } from '@/data/girls'
 
 interface ChatListItem {
   id: number
@@ -77,7 +79,8 @@ function onClearQuery() {
 }
 
 function girlImage(id: number) {
-  return GIRLS.find((g) => g.id === id)?.image
+  const girl = GIRLS.find((g) => g.id === id)
+  return girl ? getGirlAvatarImage(girl) : undefined
 }
 
 function onOpenProfile(girlId: number) {
@@ -100,17 +103,19 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 
 <template>
   <div class="chats">
-    <PageHeader title="Чаты" @back="onBack">
+    <EnterItem :order="0" solo>
+      <PageHeader title="Чаты" @back="onBack">
       <template #right>
         <button class="icon-btn" aria-label="поиск" @click="onToggleSearch">
           <IconSearch v-if="!searching" class="head-icon" />
           <IconClose v-else class="head-icon" />
         </button>
       </template>
-    </PageHeader>
+      </PageHeader>
+    </EnterItem>
 
     <Transition name="slide-search">
-      <div v-if="searching" class="search-bar">
+      <EnterItem v-if="searching" :order="1" solo class="search-bar">
         <IconSearch class="search-icon" />
         <input
           ref="searchInput"
@@ -127,11 +132,18 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
         >
           <IconClose class="clear-icon" />
         </button>
-      </div>
+      </EnterItem>
     </Transition>
 
-    <div class="list">
-      <article v-for="chat in filtered" :key="chat.id" class="chat">
+    <div class="list page-enter">
+      <EnterItem
+        v-for="(chat, i) in filtered"
+        :key="chat.id"
+        :index="i"
+        :base="2"
+        tag="article"
+        class="chat"
+      >
         <button
           type="button"
           class="avatar-btn"
@@ -140,11 +152,13 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
         >
           <div class="avatar-wrap">
             <div class="avatar" :style="{ background: chat.color }">
-              <img
+              <CoverImage
                 v-if="girlImage(chat.id)"
-                :src="girlImage(chat.id)"
+                :src="girlImage(chat.id)!"
                 :alt="chat.name"
-                class="avatar-img"
+                class="avatar-cover"
+                image-slot="avatar"
+                position="center top"
               />
               <span v-else class="avatar-letter">{{ chat.name.charAt(0) }}</span>
             </div>
@@ -166,15 +180,15 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
             <span class="time">{{ chat.time }}</span>
           </div>
         </button>
-      </article>
+      </EnterItem>
 
-      <div v-if="!chats.length && !searching" class="empty">
+      <EnterItem v-if="!chats.length && !searching" :order="2" class="empty">
         Пока нет чатов — найдите пару в свайпах
-      </div>
+      </EnterItem>
 
-      <div v-else-if="searching && !filtered.length" class="empty">
+      <EnterItem v-else-if="searching && !filtered.length" :order="2" class="empty">
         Ничего не найдено
-      </div>
+      </EnterItem>
     </div>
 
     <BottomNav
@@ -191,7 +205,6 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   display: flex;
   flex-direction: column;
 }
@@ -370,10 +383,9 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   box-sizing: border-box;
 }
 
-.avatar-img {
+.avatar-cover {
   width: 100%;
   height: 100%;
-  object-fit: cover;
 }
 
 .avatar-letter {

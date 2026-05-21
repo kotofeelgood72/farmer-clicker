@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { nextTick, watch } from 'vue'
+import { nextTick, onMounted, ref, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import DailyRewardsModal from '@/components/DailyRewardsModal.vue'
+import IosActivityIndicator from '@/components/IosActivityIndicator.vue'
 import IosNotificationBanner from '@/components/IosNotificationBanner.vue'
 import { useAchievements } from '@/composables/useAchievements'
 import { useDailyRewards } from '@/composables/useDailyRewards'
@@ -16,6 +17,15 @@ const { refreshAchievements } = useAchievements()
 const { transitionName, setTransition } = useRouteTransition()
 
 useNotificationWatcher()
+
+const BOOT_LOAD_MS = 2000
+const isBootLoading = ref(true)
+
+onMounted(() => {
+  window.setTimeout(() => {
+    isBootLoading.value = false
+  }, BOOT_LOAD_MS)
+})
 
 router.beforeEach((to, from) => {
   if (from.matched.length) {
@@ -48,7 +58,12 @@ watch(
       <div class="phone-frame">
         <div class="phone-screen">
           <div class="dynamic-island" />
-          <div class="route-view">
+          <Transition name="boot-fade">
+            <div v-if="isBootLoading" class="app-boot" aria-busy="true" aria-live="polite">
+              <IosActivityIndicator />
+            </div>
+          </Transition>
+          <div class="route-view" :class="{ 'route-view--booting': isBootLoading }">
             <RouterView v-slot="{ Component }">
               <Transition :name="transitionName">
                 <component :is="Component" :key="route.fullPath" class="route-page" />
@@ -64,8 +79,9 @@ watch(
 </template>
 
 <style>
-html, body {
-  background-color: #0a0a0a;
+html,
+body {
+  background-color: white;
   margin: 0;
   padding: 0;
   width: 100%;
@@ -133,7 +149,7 @@ html, body {
   --phone-inner-radius: var(--radius-inner);
   border-radius: var(--radius-inner);
   overflow: hidden;
-  background: #000;
+  background: white;
   isolation: isolate;
 }
 
@@ -150,6 +166,28 @@ html, body {
   pointer-events: none;
 }
 
+.app-boot {
+  position: absolute;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+
+.boot-fade-leave-active {
+  transition: opacity 0.28s ease;
+}
+
+.boot-fade-leave-to {
+  opacity: 0;
+}
+
+.route-view--booting {
+  visibility: hidden;
+}
+
 .route-view {
   position: relative;
   width: 100%;
@@ -163,8 +201,6 @@ html, body {
   overflow: hidden;
 }
 
-.route-fade-enter-active,
-.route-fade-leave-active,
 .route-slide-forward-enter-active,
 .route-slide-forward-leave-active,
 .route-slide-back-enter-active,
@@ -173,26 +209,8 @@ html, body {
   inset: 0;
   width: 100%;
   height: 100%;
-  will-change: transform, opacity;
-}
-
-.route-fade-enter-active,
-.route-fade-leave-active {
-  transition: opacity 0.22s ease;
-}
-
-.route-fade-enter-from,
-.route-fade-leave-to {
-  opacity: 0;
-}
-
-.route-slide-forward-enter-active,
-.route-slide-forward-leave-active,
-.route-slide-back-enter-active,
-.route-slide-back-leave-active {
-  transition:
-    transform 0.32s cubic-bezier(0.32, 0.72, 0, 1),
-    opacity 0.32s ease;
+  will-change: transform;
+  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .route-slide-forward-enter-from {
@@ -201,12 +219,10 @@ html, body {
 
 .route-slide-forward-leave-to {
   transform: translateX(-28%);
-  opacity: 0.92;
 }
 
 .route-slide-back-enter-from {
   transform: translateX(-28%);
-  opacity: 0.92;
 }
 
 .route-slide-back-leave-to {

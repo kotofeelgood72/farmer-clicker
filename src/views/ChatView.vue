@@ -23,6 +23,7 @@ import iconStone from '@/assets/ui/stone.png'
 import QuickReply from '@/components/QuickReply.vue'
 import ChatTypingIndicator from '@/components/ChatTypingIndicator.vue'
 import chatBgUrl from '@/assets/ui/chat-bg.png'
+import EnterItem from '@/components/EnterItem.vue'
 
 type Sender = 'them' | 'me'
 interface Message {
@@ -231,7 +232,7 @@ function onGoToDate() {
 
 <template>
   <div class="chat-view" :style="{ '--chat-bg': `url(${chatBgUrl})` }">
-    <header class="chat-header">
+    <EnterItem :order="0" solo tag="header" class="chat-header">
       <button class="back-btn" aria-label="назад" @click="onBack">
         <IconArrowLeft class="back-icon" />
       </button>
@@ -259,7 +260,7 @@ function onGoToDate() {
         <img :src="iconStone" alt="" class="diamonds-btn__icon" />
         <span class="diamonds-btn__value">{{ diamonds }}</span>
       </button>
-    </header>
+    </EnterItem>
 
     <div ref="scroller" class="messages">
       <TransitionGroup name="msg" tag="div" class="msg-list">
@@ -281,7 +282,7 @@ function onGoToDate() {
       />
     </div>
 
-    <div v-if="showReplies && !chatComplete" class="replies">
+    <footer v-if="showReplies && !chatComplete" class="replies-bar">
       <QuickReply
         v-for="r in replies"
         :key="r.id"
@@ -289,7 +290,7 @@ function onGoToDate() {
         :cost="r.cost"
         @pick="onPickReply(r)"
       />
-    </div>
+    </footer>
 
     <div v-if="chatComplete" class="completion-overlay phone-modal-overlay">
       <div class="completion-card modal-surface">
@@ -316,11 +317,6 @@ function onGoToDate() {
   height: 100%;
   background-color: var(--bg);
   color: var(--text);
-  font-family:
-    'Inter',
-    system-ui,
-    -apple-system,
-    sans-serif;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -346,12 +342,14 @@ function onGoToDate() {
 
 /* chat header */
 .chat-header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 56px 12px 10px;
   background: var(--header-bg);
   border-bottom: 1px solid var(--hairline);
+  z-index: 2;
 }
 
 .back-btn {
@@ -581,12 +579,16 @@ function onGoToDate() {
   flex-shrink: 0;
 }
 
-/* quick replies */
-.replies {
+/* панель ответов — как хедер, всегда внизу экрана */
+.replies-bar {
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 0 12px 22px;
+  padding: 10px 12px 20px;
+  background: var(--header-bg);
+  border-top: 1px solid var(--hairline);
+  z-index: 2;
 }
 
 /* completion modal */
@@ -598,7 +600,6 @@ function onGoToDate() {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(20, 18, 30, 0.94);
   animation: completion-fade 0.32s ease-out;
 }
 

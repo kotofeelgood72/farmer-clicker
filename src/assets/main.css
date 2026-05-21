@@ -1,7 +1,10 @@
 @import './base.css';
+@import './enter.css';
 
 /* Light theme tokens — warm pink-cream palette */
 :root {
+  --font-sans: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
   /* surfaces */
   --bg: #fdf7fa;
   --surface: #ffffff;
@@ -44,6 +47,10 @@
   --bubble-them-text: #1a1424;
   --bubble-me-bg: linear-gradient(135deg, #b14bff 0%, #ff4d8e 100%);
   --bubble-me-text: #ffffff;
+
+  /* единый backdrop для модалок */
+  --modal-overlay-bg: rgba(255, 255, 255, 0.52);
+  --modal-overlay-blur: 14px;
 }
 
 #app {
@@ -51,6 +58,7 @@
   height: 100dvh;
   margin: 0 auto;
   padding: 0;
+  font-family: var(--font-sans);
   font-weight: normal;
 }
 
@@ -69,6 +77,12 @@
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
   transform: translateZ(0);
+}
+
+.phone-modal-overlay:not(.match-overlay) {
+  background: var(--modal-overlay-bg);
+  backdrop-filter: blur(var(--modal-overlay-blur)) saturate(1.15);
+  -webkit-backdrop-filter: blur(var(--modal-overlay-blur)) saturate(1.15);
 }
 
 .modal-surface {
@@ -91,7 +105,7 @@
 .modal-media-frame {
   border: none;
   overflow: hidden;
-  background: #000;
+  background: white;
   line-height: 0;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
   -webkit-backface-visibility: hidden;

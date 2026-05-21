@@ -9,12 +9,15 @@
     "preview": "vite preview",
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
-    "format": "prettier --write --experimental-cli src/"
+    "format": "prettier --write --experimental-cli src/",
+    "images": "node scripts/generate-image-variants.mjs",
+    "prebuild": "node scripts/generate-image-variants.mjs"
   },
   "dependencies": {
     "@iconify-json/solar": "^1.2.5",
     "gsap": "^3.15.0",
     "pinia": "^3.0.4",
+    "shepherd.js": "^15.2.2",
     "swiper": "^12.1.4",
     "vue": "^3.5.32",
     "vue-router": "^5.0.4"
@@ -26,6 +29,7 @@
     "@vue/tsconfig": "^0.9.1",
     "npm-run-all2": "^8.0.4",
     "prettier": "3.8.3",
+    "sharp": "^0.34.5",
     "typescript": "~6.0.0",
     "unplugin-icons": "^23.0.1",
     "vite": "^8.0.8",

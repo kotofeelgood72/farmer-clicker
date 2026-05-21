@@ -56,16 +56,17 @@ defineProps<{
   align-items: center;
   gap: 5px;
   padding: 12px 16px;
-  background: #1d1b2a;
+  background: var(--bubble-them-bg);
   border-radius: 18px;
   border-bottom-left-radius: 6px;
+  box-shadow: var(--shadow-sm);
 }
 
 .typing__dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.45);
+  background: var(--text-muted);
   animation: typing-bounce 1.1s ease-in-out infinite;
 }
 

@@ -1,4 +1,4 @@
-import { GIRLS, type GirlProfile } from '@/data/girls'
+import { GIRLS, getGirlPortraitImage, type GirlProfile } from '@/data/girls'
 import { isGirlChatCompleted } from '@/composables/useGirlChat'
 import { isMeetingCompleted, isMeetingStarted } from '@/composables/useMeetingChat'
 import { hasMeetingDialog } from '@/data/meetings'
@@ -24,11 +24,26 @@ const meetingModules = import.meta.glob<string>('@/assets/meeting/*/*.png', {
   import: 'default',
 })
 
+const meetingCardModules = import.meta.glob<string>('@/assets/meeting/*/*.card.webp', {
+  eager: true,
+  import: 'default',
+})
+
 const meetingImagesById = Object.fromEntries(
   Object.entries(meetingModules)
     .map(([path, url]) => {
       // Берём только meeting/<id>/<id>.png, чтобы случайные bg/иконки не перетёрли основное фото локации.
       const m = path.match(/meeting\/(\d+)\/(\d+)\.png$/)
+      if (!m || m[1] !== m[2]) return null
+      return [Number(m[1]), url] as const
+    })
+    .filter((entry): entry is [number, string] => entry !== null),
+) as Record<number, string>
+
+const meetingCardById = Object.fromEntries(
+  Object.entries(meetingCardModules)
+    .map(([path, url]) => {
+      const m = path.match(/meeting\/(\d+)\/(\d+)\.card\.webp$/)
       if (!m || m[1] !== m[2]) return null
       return [Number(m[1]), url] as const
     })
@@ -115,10 +130,10 @@ function buildDate(
     status: resolveStatus(girl, location.id),
     girlId: girl.id,
     girlName: girl.name,
-    girlImage: girl.image,
+    girlImage: getGirlPortraitImage(girl),
     girlColor: girl.color,
     locationId: location.id,
-    locationImage: meetingImagesById[location.id],
+    locationImage: meetingCardById[location.id] ?? meetingImagesById[location.id],
   }
 }
 

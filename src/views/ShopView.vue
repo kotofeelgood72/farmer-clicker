@@ -12,6 +12,7 @@ import { useAchievements } from '@/composables/useAchievements'
 import { useDiamonds } from '@/composables/useDiamonds'
 import { useEnergy } from '@/composables/useEnergy'
 import IconCheck from '~icons/solar/check-circle-bold'
+import EnterItem from '@/components/EnterItem.vue'
 
 type TabKey = 'diamonds' | 'energy' | 'premium'
 
@@ -124,7 +125,8 @@ function onBuyMore() {
 
 <template>
   <div class="shop">
-    <PageHeader title="Магазин" @back="onBack">
+    <EnterItem :order="0" solo>
+      <PageHeader title="Магазин" @back="onBack">
       <template #right>
         <div class="balances">
           <button type="button" class="balance balance--clickable" @click="selectTab('energy')">
@@ -137,10 +139,11 @@ function onBuyMore() {
           </button>
         </div>
       </template>
-    </PageHeader>
+      </PageHeader>
+    </EnterItem>
 
-    <div class="scroll">
-      <div class="tabs">
+    <div class="scroll page-enter">
+      <EnterItem :order="1" class="tabs">
         <button
           v-for="tab in tabs"
           :key="tab.key"
@@ -149,9 +152,10 @@ function onBuyMore() {
         >
           {{ tab.label }}
         </button>
-      </div>
+      </EnterItem>
 
-      <div v-if="activeTab === 'premium' && premiumItem" class="premium">
+      <div v-if="activeTab === 'premium' && premiumItem" :key="activeTab" class="premium">
+        <EnterItem :order="2">
         <button type="button" class="premium-card" @click="onBuy(premiumItem)">
           <span class="premium-card__shine" aria-hidden="true" />
           <div class="premium-card__icon-wrap">
@@ -167,8 +171,9 @@ function onBuyMore() {
             <span class="premium-card__price-currency">₽</span>
           </div>
         </button>
+        </EnterItem>
 
-        <section class="premium-benefits">
+        <EnterItem :order="3" tag="section" class="premium-benefits">
           <h3 class="premium-benefits__title">Преимущества премиума</h3>
           <ul class="premium-benefits__list">
             <li v-for="benefit in premiumBenefits" :key="benefit" class="premium-benefits__item">
@@ -176,11 +181,16 @@ function onBuyMore() {
               <span>{{ benefit }}</span>
             </li>
           </ul>
-        </section>
+        </EnterItem>
       </div>
 
-      <div v-else class="grid">
-        <button v-for="item in items" :key="item.id" class="card" @click="onBuy(item)">
+      <div v-else :key="activeTab" class="grid">
+        <button
+          v-for="item in items"
+          :key="item.id"
+          class="card"
+          @click="onBuy(item)"
+        >
           <span v-if="item.discount" class="discount">-{{ item.discount }}%</span>
           <div class="card-icon">
             <img :src="item.icon" :alt="`${item.amount}`" />
@@ -191,9 +201,9 @@ function onBuyMore() {
       </div>
     </div>
 
-    <div class="cta">
+    <EnterItem :order="4" solo class="cta">
       <AppButton variant="violet" @click="onBuyMore">Получить премиум</AppButton>
-    </div>
+    </EnterItem>
   </div>
 </template>
 
@@ -203,11 +213,6 @@ function onBuyMore() {
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family:
-    'Inter',
-    system-ui,
-    -apple-system,
-    sans-serif;
   display: flex;
   flex-direction: column;
 }
@@ -508,11 +513,13 @@ function onBuyMore() {
 /* Grid */
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
 .card {
+  width: 100%;
+  min-width: 0;
   position: relative;
   background: var(--surface);
   border: 1px solid var(--border);

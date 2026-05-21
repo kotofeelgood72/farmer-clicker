@@ -9,6 +9,7 @@ import { getDailyDateById } from '@/data/dates'
 import { useAchievements } from '@/composables/useAchievements'
 import { useDiamonds } from '@/composables/useDiamonds'
 import { useMeetingChat } from '@/composables/useMeetingChat'
+import EnterItem from '@/components/EnterItem.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -101,14 +102,16 @@ function onPick(reply: { id: number; text: string; cost: number }) {
 
 <template>
   <div class="scene">
-    <PageHeader :title="title" @back="onBack">
-      <template #right>
-        <span v-if="stepLabel" class="step-counter">{{ stepLabel }}</span>
-      </template>
-    </PageHeader>
+    <EnterItem :order="0" solo>
+      <PageHeader :title="title" @back="onBack">
+        <template #right>
+          <span v-if="stepLabel" class="step-counter">{{ stepLabel }}</span>
+        </template>
+      </PageHeader>
+    </EnterItem>
 
-    <div ref="scroller" class="scroll">
-      <div class="hero" :style="{ background: girlColor }">
+    <div ref="scroller" class="scroll page-enter">
+      <EnterItem :order="1" class="hero" :style="{ background: girlColor }">
         <img
           v-if="locationImage"
           :src="locationImage"
@@ -123,7 +126,7 @@ function onPick(reply: { id: number; text: string; cost: number }) {
           class="hero-girl"
         />
         <span v-else class="hero-letter">{{ girlName.charAt(0) }}</span>
-      </div>
+      </EnterItem>
 
       <TransitionGroup name="msg" tag="div" class="msg-list">
         <div
@@ -158,7 +161,7 @@ function onPick(reply: { id: number; text: string; cost: number }) {
       </div>
     </div>
 
-    <div v-if="hasReplies" class="replies">
+    <footer v-if="hasReplies" class="replies-bar">
       <QuickReply
         v-for="r in replies"
         :key="r.id"
@@ -166,7 +169,7 @@ function onPick(reply: { id: number; text: string; cost: number }) {
         :cost="r.cost"
         @pick="onPick(r)"
       />
-    </div>
+    </footer>
   </div>
 </template>
 
@@ -176,7 +179,6 @@ function onPick(reply: { id: number; text: string; cost: number }) {
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -330,12 +332,15 @@ function onPick(reply: { id: number; text: string; cost: number }) {
   flex-shrink: 0;
 }
 
-.replies {
+.replies-bar {
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 10px 12px 22px;
-  background: var(--bg);
+  padding: 10px 12px 20px;
+  background: var(--header-bg);
+  border-top: 1px solid var(--hairline);
+  z-index: 2;
 }
 
 .finale {
