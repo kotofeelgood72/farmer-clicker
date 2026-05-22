@@ -2,12 +2,29 @@
 // Game loop pause + audio mute are dispatched via window CustomEvents so
 // non-Vue code (this module) doesn't need to import the game/store.
 
-import { getYsdk } from '@/yandex/sdk'
+import { getYsdk, gameplayPause, gameplayResume } from '@/yandex/sdk'
+
+let adsDisabled = false
+
+/** Отключает рекламу (премиум). */
+export function setAdsDisabled(disabled: boolean): void {
+  adsDisabled = disabled
+}
+
+export function canShowAds(): boolean {
+  return !adsDisabled
+}
+
+function shouldShowAds(): boolean {
+  return canShowAds()
+}
 
 const SESSION_START = Date.now()
 const FIRST_AD_GAP = 60_000 // no interstitial in first minute (Yandex requirement)
 const INTERSTITIAL_MIN_GAP = 90_000 // our cooldown — 30s stricter than SDK
 const INTER_TO_REWARD_GAP = 30_000 // don't pile ads back-to-back
+/** Пауза после рекламы перед окном оценки (Яндекс SDK). */
+export const REVIEW_AFTER_AD_MS = 5_000
 
 let lastInterstitialAt = 0
 let lastAnyAdAt = 0
@@ -15,10 +32,12 @@ let isAdPlaying = false
 
 function emitPause() {
   isAdPlaying = true
+  gameplayPause()
   window.dispatchEvent(new CustomEvent('ads:pause'))
 }
 function emitResume() {
   isAdPlaying = false
+  gameplayResume()
   window.dispatchEvent(new CustomEvent('ads:resume'))
 }
 
@@ -26,7 +45,20 @@ export function adsPlaying(): boolean {
   return isAdPlaying
 }
 
+/** Можно показывать окно оценки: реклама не идёт и прошёл буфер после последней. */
+export function isSafeForReview(): boolean {
+  if (isAdPlaying) return false
+  return Date.now() - lastAnyAdAt >= REVIEW_AFTER_AD_MS
+}
+
+export function msUntilSafeForReview(): number {
+  if (isAdPlaying) return REVIEW_AFTER_AD_MS
+  const left = REVIEW_AFTER_AD_MS - (Date.now() - lastAnyAdAt)
+  return Math.max(0, left)
+}
+
 export function canShowInterstitial(): boolean {
+  if (!shouldShowAds()) return false
   if (isAdPlaying) return false
   const now = Date.now()
   if (now - SESSION_START < FIRST_AD_GAP) return false
@@ -39,41 +71,66 @@ export function canShowInterstitial(): boolean {
  * Try to show a fullscreen interstitial. No-op if cooldown is not satisfied
  * or the SDK is unavailable. Always safe to call.
  */
-export function showInterstitial(_reason?: string): void {
-  if (!canShowInterstitial()) return
+/**
+ * Полноэкранная реклама по клику. Если показ невозможен — сразу вызывает onClose.
+ */
+export function showInterstitial(
+  _reason?: string,
+  opts?: { onClose?: () => void },
+): boolean {
+  const finish = () => opts?.onClose?.()
+
+  if (!canShowInterstitial()) {
+    finish()
+    return false
+  }
+
   lastInterstitialAt = Date.now()
   lastAnyAdAt = lastInterstitialAt
 
   const ysdk = getYsdk()
   if (!ysdk) {
-    // Dev / no platform — pretend the ad played briefly so cooldown engages.
     if (import.meta.env.DEV) {
       // eslint-disable-next-line no-console
       console.info('[ads] interstitial (dev stub)', _reason)
     }
-    return
+    finish()
+    return true
   }
 
   emitPause()
   try {
     ysdk.adv.showFullscreenAdv({
       callbacks: {
-        onClose: () => emitResume(),
-        onError: () => emitResume(),
+        onClose: () => {
+          emitResume()
+          finish()
+        },
+        onError: () => {
+          emitResume()
+          finish()
+        },
       },
     })
   } catch (err) {
     console.warn('[ads] interstitial failed', err)
     emitResume()
+    finish()
   }
+  return true
 }
 
 /**
  * Show a rewarded video. Reward is delivered ONLY if onRewarded fires.
  * In dev (no SDK), reward is granted immediately for testing.
  */
-export function showRewarded(onReward: () => void): void {
-  if (isAdPlaying) return
+/** @returns true если показ рекламы запущен (или dev-stub). */
+export function showRewarded(
+  onReward: () => void,
+  opts?: { onFinish?: () => void },
+): boolean {
+  if (!shouldShowAds()) return false
+  if (isAdPlaying) return false
   lastAnyAdAt = Date.now()
 
   const ysdk = getYsdk()
@@ -82,8 +139,10 @@ export function showRewarded(onReward: () => void): void {
       // eslint-disable-next-line no-console
       console.info('[ads] rewarded (dev stub) — granting immediately')
       onReward()
+      opts?.onFinish?.()
+      return true
     }
-    return
+    return false
   }
 
   let granted = false
@@ -97,14 +156,18 @@ export function showRewarded(onReward: () => void): void {
         onClose: () => {
           emitResume()
           if (granted) onReward()
+          opts?.onFinish?.()
         },
         onError: () => {
           emitResume()
+          opts?.onFinish?.()
         },
       },
     })
   } catch (err) {
     console.warn('[ads] rewarded failed', err)
     emitResume()
+    opts?.onFinish?.()
   }
+  return true
 }

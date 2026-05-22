@@ -7,6 +7,7 @@ import { GIRLS } from '@/data/girls'
 import { hasGirlDialog } from '@/data/dialogs'
 import { getDailyDateByGirlId } from '@/data/dates'
 import { useAchievements } from '@/composables/useAchievements'
+import { fireConfetti } from '@/composables/useConfetti'
 import {
   checkRelationshipLevelUps,
   notifyDateAvailable,
@@ -15,6 +16,7 @@ import {
   syncAwaitingReplyForGirl,
   useChatHistory,
 } from '@/composables/useChatHistory'
+import { maybeInterstitialOnReply, runAfterInterstitial } from '@/composables/useAdPlacements'
 import { useDiamonds } from '@/composables/useDiamonds'
 import { computeReplyCost } from '@/composables/useDialogChat'
 import { useGirlChat, type ChatReply } from '@/composables/useGirlChat'
@@ -31,6 +33,7 @@ interface Message {
   sender: Sender
   text: string
   time: string
+  image?: string
 }
 
 interface FallbackReply {
@@ -126,24 +129,17 @@ async function scrollToBottom() {
   if (scroller.value) scroller.value.scrollTop = scroller.value.scrollHeight
 }
 
-function syncChatPreview() {
-  const last = messages.value.at(-1)
-  touchChat(girlId.value, { preview: last?.text })
+function messagePreview(m: Message) {
+  if (m.image) return '📷 Фото'
+  return m.text
 }
 
-function onPickReply(reply: ChatReply | FallbackReply) {
-  if (!canSpend(reply.cost)) {
-    void router.push('/shop')
-    return
-  }
-  if (!spend(reply.cost)) {
-    void router.push('/shop')
-    return
-  }
+function syncChatPreview() {
+  const last = messages.value.at(-1)
+  touchChat(girlId.value, { preview: last ? messagePreview(last) : undefined })
+}
 
-  trackDiamondsSpent(reply.cost)
-  trackPlayerMessage()
-
+function sendReply(reply: ChatReply | FallbackReply) {
   if (hasDialog.value) {
     dialogChat.pickReply(reply as ChatReply)
     syncChatPreview()
@@ -159,6 +155,21 @@ function onPickReply(reply: ChatReply | FallbackReply) {
   })
   syncChatPreview()
   void scrollToBottom()
+}
+
+function onPickReply(reply: ChatReply | FallbackReply) {
+  if (!canSpend(reply.cost)) {
+    void router.push('/shop')
+    return
+  }
+  if (!spend(reply.cost)) {
+    void router.push('/shop')
+    return
+  }
+
+  trackDiamondsSpent(reply.cost)
+  trackPlayerMessage()
+  maybeInterstitialOnReply(() => sendReply(reply))
 }
 
 watch(
@@ -179,6 +190,7 @@ watch(
   () => dialogChat.dialogComplete.value,
   (done, wasDone) => {
     if (!done || wasDone) return
+    fireConfetti()
     refreshAchievements()
     notifyDateAvailable(girlId.value)
     checkRelationshipLevelUps()
@@ -209,7 +221,12 @@ onUnmounted(() => {
 })
 
 function onBack() {
-  void router.push('/chats')
+  const go = () => void router.push('/chats')
+  if (chatComplete.value) {
+    runAfterInterstitial(go, 'chat_complete', { reviewAfter: true })
+  } else {
+    go()
+  }
 }
 
 function onOpenShop() {
@@ -222,11 +239,14 @@ function onOpenProfile() {
 
 function onGoToDate() {
   const daily = getDailyDateByGirlId(girlId.value)
-  if (daily) {
-    void router.push(`/date/${daily.id}`)
-  } else {
-    void router.push('/dates')
-  }
+  runAfterInterstitial(
+    () => {
+      if (daily) void router.push(`/date/${daily.id}`)
+      else void router.push('/dates')
+    },
+    'chat_complete_date',
+    { reviewAfter: true },
+  )
 }
 </script>
 
@@ -265,8 +285,15 @@ function onGoToDate() {
     <div ref="scroller" class="messages">
       <TransitionGroup name="msg" tag="div" class="msg-list">
         <div v-for="m in messages" :key="m.id" :class="['message', `message--${m.sender}`]">
-          <div class="bubble">
-            {{ m.text }}
+          <div class="bubble" :class="{ 'bubble--photo': m.image }">
+            <img
+              v-if="m.image"
+              :src="m.image"
+              alt=""
+              class="bubble-photo"
+              loading="lazy"
+            />
+            <template v-else>{{ m.text }}</template>
             <span class="bubble-meta">
               <span class="time">{{ m.time }}</span>
               <IconCheckRead v-if="m.sender === 'me'" class="check" />
@@ -552,6 +579,19 @@ function onGoToDate() {
   color: var(--bubble-me-text);
   border-bottom-right-radius: 6px;
   box-shadow: 0 4px 14px rgba(177, 75, 255, 0.22);
+}
+
+.bubble--photo {
+  padding: 4px;
+  max-width: min(72vw, 220px);
+}
+
+.bubble-photo {
+  display: block;
+  width: 100%;
+  border-radius: 14px;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
 }
 
 .bubble-meta {

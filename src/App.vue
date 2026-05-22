@@ -4,8 +4,10 @@ import { RouterView, useRoute, useRouter } from 'vue-router'
 import DailyRewardsModal from '@/components/DailyRewardsModal.vue'
 import IosActivityIndicator from '@/components/IosActivityIndicator.vue'
 import IosNotificationBanner from '@/components/IosNotificationBanner.vue'
+import { setAdsDisabled } from '@/ads/ads'
 import { useAchievements } from '@/composables/useAchievements'
 import { useDailyRewards } from '@/composables/useDailyRewards'
+import { usePremium } from '@/composables/usePremium'
 import { useNotificationWatcher } from '@/composables/useNotificationWatcher'
 import { routeComponentKey, useRouteTransition } from '@/composables/useRouteTransition'
 import stageBgUrl from '@/assets/ui/background.png'
@@ -17,6 +19,9 @@ const { refreshAchievements } = useAchievements()
 const { transitionName, setTransition } = useRouteTransition()
 
 useNotificationWatcher()
+
+const { isPremium } = usePremium()
+watch(isPremium, (premium) => setAdsDisabled(premium), { immediate: true })
 
 const BOOT_LOAD_MS = 2000
 const isBootLoading = ref(true)

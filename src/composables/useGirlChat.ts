@@ -1,5 +1,6 @@
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { getGirlDialog } from '@/data/dialogs'
+import { getGirlById, getGirlGalleryPhotoByIndex } from '@/data/girls'
 import { isDialogCompleted, loadDialogState, useDialogChat } from './useDialogChat'
 
 export type { ChatSender, ChatMessage, ChatReply } from './useDialogChat'
@@ -26,5 +27,10 @@ export function useGirlChat(girlIdSource: MaybeRefOrGetter<number>) {
   const girlId = computed(() => toValue(girlIdSource))
   const dialog = computed(() => getGirlDialog(girlId.value))
   const storageKey = computed(() => girlChatStorageKey(girlId.value))
-  return useDialogChat({ dialog, storageKey })
+  const girl = computed(() => getGirlById(girlId.value))
+  return useDialogChat({
+    dialog,
+    storageKey,
+    resolvePhoto: (index) => getGirlGalleryPhotoByIndex(girl.value, index),
+  })
 }

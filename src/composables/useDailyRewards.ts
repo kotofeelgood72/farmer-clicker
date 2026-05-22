@@ -1,7 +1,12 @@
 import { computed, ref } from 'vue'
+import { showRewarded } from '@/ads/ads'
 import { recordLoginStreak } from '@/composables/useAchievements'
+import { fireConfetti } from '@/composables/useConfetti'
 import { useDiamonds } from '@/composables/useDiamonds'
 import { useEnergy } from '@/composables/useEnergy'
+import { usePremium } from '@/composables/usePremium'
+import { scheduleGameReview } from '@/composables/useGameReview'
+import { DAILY_REWARD_AD_MULTIPLIER } from '@/constants/game'
 
 const STORAGE_KEY = 'swipe-daily-rewards-v1'
 
@@ -89,6 +94,8 @@ function saveState(s: DailyRewardsState) {
 
 const state = ref<DailyRewardsState>(loadState())
 const isModalOpen = ref(false)
+const claimingAd = ref(false)
+const { isPremium } = usePremium()
 
 const todayReward = computed(
   () => DAILY_REWARD_DEFS[state.value.streakDay - 1] ?? DAILY_REWARD_DEFS[0],
@@ -97,6 +104,16 @@ const todayReward = computed(
 const claimedToday = computed(() => state.value.lastClaimDate === todayKey())
 
 const canClaimToday = computed(() => !claimedToday.value)
+
+const todayRewardDoubled = computed(() => {
+  const reward = todayReward.value
+  if (!reward) return null
+  return { ...reward, amount: reward.amount * DAILY_REWARD_AD_MULTIPLIER }
+})
+
+const canClaimDoubledViaAd = computed(
+  () => canClaimToday.value && !isPremium.value,
+)
 
 /** Сколько дней цикла уже получено (включая сегодняшний, если забрали). */
 const completedDays = computed(() => {
@@ -180,30 +197,52 @@ function closeModal() {
   isModalOpen.value = false
 }
 
-function claimToday() {
+function grantReward(reward: DailyRewardDef, multiplier: number) {
+  const amount = reward.amount * multiplier
+  const { add: addDiamonds } = useDiamonds()
+  const { add: addEnergy } = useEnergy()
+  if (reward.type === 'diamonds') addDiamonds(amount)
+  else addEnergy(amount)
+}
+
+function claimToday(multiplier = 1) {
   if (!canClaimToday.value) return false
 
   const reward = todayReward.value
   if (!reward) return false
 
-  const { add: addDiamonds } = useDiamonds()
-  const { add: addEnergy } = useEnergy()
-
-  if (reward.type === 'diamonds') addDiamonds(reward.amount)
-  else addEnergy(reward.amount)
+  const safeMultiplier = Math.max(1, Math.floor(multiplier))
+  grantReward(reward, safeMultiplier)
 
   state.value = {
     ...state.value,
     lastClaimDate: todayKey(),
   }
   saveState(state.value)
+  claimingAd.value = false
   isModalOpen.value = false
+  fireConfetti()
+  scheduleGameReview('daily_reward')
   return true
+}
+
+/** Удвоенная награда после просмотра rewarded-рекламы. */
+function claimTodayDoubledViaAd(): boolean {
+  if (!canClaimDoubledViaAd.value || claimingAd.value) return false
+
+  claimingAd.value = true
+  const started = showRewarded(
+    () => claimToday(DAILY_REWARD_AD_MULTIPLIER),
+    { onFinish: () => { claimingAd.value = false } },
+  )
+  if (!started) claimingAd.value = false
+  return started
 }
 
 export function resetDailyRewardsStore() {
   state.value = { streakDay: 1, lastVisitDate: null, lastClaimDate: null }
   isModalOpen.value = false
+  claimingAd.value = false
   try {
     localStorage.removeItem(STORAGE_KEY)
   } catch {
@@ -218,12 +257,16 @@ export function useDailyRewards() {
     claimedToday,
     cards,
     todayReward,
+    todayRewardDoubled,
     canClaimToday,
+    canClaimDoubledViaAd,
+    claimingAd: computed(() => claimingAd.value),
     isModalOpen,
     syncOnVisit,
     syncAndShowModal,
     openModal,
     closeModal,
     claimToday,
+    claimTodayDoubledViaAd,
   }
 }

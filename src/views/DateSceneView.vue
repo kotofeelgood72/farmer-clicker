@@ -7,6 +7,8 @@ import IconCheckRead from '~icons/solar/check-read-outline'
 import ChatTypingIndicator from '@/components/ChatTypingIndicator.vue'
 import { getDailyDateById } from '@/data/dates'
 import { useAchievements } from '@/composables/useAchievements'
+import { fireConfetti } from '@/composables/useConfetti'
+import { maybeInterstitialOnReply, runAfterInterstitial } from '@/composables/useAdPlacements'
 import { useDiamonds } from '@/composables/useDiamonds'
 import { useMeetingChat } from '@/composables/useMeetingChat'
 import EnterItem from '@/components/EnterItem.vue'
@@ -68,6 +70,7 @@ watch(() => messages.value.length, () => void scrollToBottom())
 watch(isTyping, (typing) => { if (typing) void scrollToBottom() })
 watch(dialogComplete, (done) => {
   if (done) {
+    fireConfetti()
     trackDateCompleted()
     refreshAchievements()
     void scrollToBottom()
@@ -83,7 +86,14 @@ watch(
 
 onMounted(() => void scrollToBottom())
 
-function onBack() { void router.push('/dates') }
+function onBack() {
+  const go = () => void router.push('/dates')
+  if (dialogComplete.value) {
+    runAfterInterstitial(go, 'date_complete', { reviewAfter: true })
+  } else {
+    go()
+  }
+}
 
 function onPick(reply: { id: number; text: string; cost: number }) {
   if (!canSpend(reply.cost)) {
@@ -96,7 +106,7 @@ function onPick(reply: { id: number; text: string; cost: number }) {
   }
   trackDiamondsSpent(reply.cost)
   trackPlayerMessage()
-  pickReply(reply)
+  maybeInterstitialOnReply(() => pickReply(reply))
 }
 </script>
 

@@ -1,9 +1,13 @@
+import { resetAdPlacementsState } from '@/composables/useAdPlacements'
+import { resetGameReviewScheduler } from '@/composables/useGameReview'
+import { resetReviewSession } from '@/yandex/sdk'
 import { resetAchievementsStore } from '@/composables/useAchievements'
 import { resetInAppNotificationsStore } from '@/composables/useInAppNotifications'
 import { resetChatHistoryStore } from '@/composables/useChatHistory'
 import { resetDailyRewardsStore } from '@/composables/useDailyRewards'
 import { resetDiamondsStore } from '@/composables/useDiamonds'
 import { resetEnergyStore } from '@/composables/useEnergy'
+import { resetPremiumStore } from '@/composables/usePremium'
 import { resetPlayerStatsStore } from '@/composables/usePlayerStats'
 
 const PRESERVED_KEYS = new Set(['swipe-user-avatar'])
@@ -23,10 +27,14 @@ function clearSwipeLocalStorage() {
 export function resetAllGameProgress() {
   clearSwipeLocalStorage()
   resetEnergyStore()
+  resetPremiumStore()
   resetDiamondsStore()
   resetChatHistoryStore()
   resetPlayerStatsStore()
   resetDailyRewardsStore()
   resetAchievementsStore()
   resetInAppNotificationsStore()
+  resetAdPlacementsState()
+  resetGameReviewScheduler()
+  resetReviewSession()
 }

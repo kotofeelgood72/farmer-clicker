@@ -6,6 +6,8 @@ export interface DialogNode {
   id: number
   speaker: string
   text: string
+  /** Индекс файла в `girls/<id>/gallery/<n>.png` для сообщений `[фото]` */
+  photoIndex?: number
   choices: DialogChoice[]
   affection: number
   emotion: string

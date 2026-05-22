@@ -1,4 +1,5 @@
 import { computed, ref, watch } from 'vue'
+import { usePremium } from '@/composables/usePremium'
 
 const STORAGE_KEY = 'swipe-energy-v2'
 
@@ -46,6 +47,8 @@ const energy = computed(() => state.value.current)
 const hasEnergy = computed(() => state.value.current > 0)
 
 function canSpend(amount: number = SWIPE_ENERGY_COST): boolean {
+  const { isPremium } = usePremium()
+  if (isPremium.value) return true
   return state.value.current >= amount
 }
 
@@ -54,6 +57,8 @@ function canSpend(amount: number = SWIPE_ENERGY_COST): boolean {
  * Никаких частичных списаний.
  */
 function spend(amount: number = SWIPE_ENERGY_COST): boolean {
+  const { isPremium } = usePremium()
+  if (isPremium.value) return true
   if (state.value.current < amount) return false
   state.value = { ...state.value, current: state.value.current - amount }
   return true

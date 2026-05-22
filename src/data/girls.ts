@@ -371,3 +371,12 @@ export function getGirlAvatarImage(girl: GirlProfile): string | undefined {
 export function getGirlPortraitImage(girl: GirlProfile): string | undefined {
   return portraitPreviewById[girl.id] ?? girl.image
 }
+
+/** Фото для чата: `gallery/1.png` → index 1, `gallery/2.png` → index 2 */
+export function getGirlGalleryPhotoByIndex(
+  girl: GirlProfile | undefined,
+  index: number,
+): string | undefined {
+  if (!girl || index < 1) return undefined
+  return girl.gallery[index - 1]?.full
+}

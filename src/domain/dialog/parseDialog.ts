@@ -47,6 +47,33 @@ const DEFAULT_LINEAR_AFFECTION = 3
 const DEFAULT_BRANCHING_AFFECTION = 3
 const DEFAULT_EMOTION = 'neutral'
 
+/** `[фото]` или `[фото:3]` — плейсхолдер фото в чате */
+const PHOTO_PLACEHOLDER_RX = /^\[фото(?::(\d+))?\]$/i
+
+export function parsePhotoPlaceholder(text: string): {
+  isPhoto: boolean
+  explicitIndex?: number
+} {
+  const m = text.trim().match(PHOTO_PLACEHOLDER_RX)
+  if (!m) return { isPhoto: false }
+  const explicit = m[1] ? Number(m[1]) : undefined
+  return {
+    isPhoto: true,
+    explicitIndex: explicit !== undefined && Number.isFinite(explicit) ? explicit : undefined,
+  }
+}
+
+function assignPhotoIndices(nodes: DialogNode[]): void {
+  let autoIndex = 0
+  for (const node of nodes) {
+    const { isPhoto, explicitIndex } = parsePhotoPlaceholder(node.text)
+    if (!isPhoto) continue
+    autoIndex += 1
+    node.photoIndex = explicitIndex ?? autoIndex
+    node.text = ''
+  }
+}
+
 const RESERVED: Array<{ rx: RegExp; type: EntryType }> = [
   { rx: /^игрок$/i, type: 'player' },
   { rx: /^ответ\s*1$/i, type: 'answer1' },
@@ -159,5 +186,6 @@ function buildNodes(entries: Entry[]): DialogNode[] {
 export function parseDialogMarkdown(girlId: number, raw: string): GirlDialog {
   const entries = tokenize(raw)
   const nodes = buildNodes(entries)
+  assignPhotoIndices(nodes)
   return { girlId, nodes }
 }

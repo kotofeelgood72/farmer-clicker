@@ -8,10 +8,16 @@ import iconStone from '@/assets/ui/stone.png'
 import iconStones from '@/assets/ui/cluster.png'
 import iconEnergy from '@/assets/ui/energy.png'
 import iconMedalion from '@/assets/ui/medalion.png'
+import { REWARDED_DIAMONDS_AMOUNT, REWARDED_ENERGY_AMOUNT } from '@/constants/game'
 import { useAchievements } from '@/composables/useAchievements'
 import { useDiamonds } from '@/composables/useDiamonds'
 import { useEnergy } from '@/composables/useEnergy'
+import { usePremium } from '@/composables/usePremium'
+import { useRewardedDiamonds } from '@/composables/useRewardedDiamonds'
+import { useRewardedEnergy } from '@/composables/useRewardedEnergy'
+import { fetchPremiumCatalogProduct, type YsdkProduct } from '@/yandex/payments'
 import IconCheck from '~icons/solar/check-circle-bold'
+import IconAdVideo from '~icons/solar/clapperboard-play-bold'
 import EnterItem from '@/components/EnterItem.vue'
 
 type TabKey = 'diamonds' | 'energy' | 'premium'
@@ -32,7 +38,13 @@ const router = useRouter()
 const route = useRoute()
 const { energy, add: addEnergy } = useEnergy()
 const { diamonds, add: addDiamonds } = useDiamonds()
-const { trackPremiumPurchase, trackEnergyShopPurchase } = useAchievements()
+const { isPremium, purchasing, purchasePremium } = usePremium()
+const { watchAdForEnergy, watching: watchingEnergyAd } = useRewardedEnergy()
+const { watchAdForDiamonds, watching: watchingDiamondsAd } = useRewardedDiamonds()
+const watchingAd = computed(() => watchingEnergyAd.value || watchingDiamondsAd.value)
+const { trackEnergyShopPurchase } = useAchievements()
+
+const premiumCatalog = ref<YsdkProduct | null>(null)
 
 function parseShopTab(value: unknown): TabKey | null {
   if (value === 'diamonds' || value === 'energy' || value === 'premium') return value
@@ -56,8 +68,19 @@ function syncTabFromRoute() {
   if (tab) activeTab.value = tab
 }
 
-onMounted(syncTabFromRoute)
+onMounted(() => {
+  syncTabFromRoute()
+  void fetchPremiumCatalogProduct().then((p) => {
+    premiumCatalog.value = p
+  })
+})
 watch(() => route.query.tab, syncTabFromRoute)
+
+const premiumPriceLabel = computed(() => {
+  if (premiumCatalog.value?.price) return premiumCatalog.value.price
+  const item = allItems.find((i) => i.unit === 'premium-lifetime')
+  return item ? `${item.price} ₽` : ''
+})
 
 const allItems: ShopItem[] = [
   // Алмазы
@@ -106,19 +129,33 @@ function onBack() {
   void router.push('/main')
 }
 
-function onBuy(item: ShopItem) {
+async function onBuy(item: ShopItem) {
+  if (item.unit === 'premium-lifetime') {
+    if (isPremium.value) return
+    await purchasePremium()
+    return
+  }
+
+  // Пакеты энергии и алмазов — без Яндекс IAP (единственная покупка — премиум).
   if (item.unit === 'energy') {
     addEnergy(item.amount)
     trackEnergyShopPurchase()
   } else if (item.unit === 'diamonds') {
     addDiamonds(item.amount)
-  } else if (item.unit === 'premium-lifetime') {
-    trackPremiumPurchase()
   }
-  console.info('[shop] buy', item)
+  console.info('[shop] dev grant', item)
+}
+
+function onWatchAdForEnergy() {
+  watchAdForEnergy()
+}
+
+function onWatchAdForDiamonds() {
+  watchAdForDiamonds()
 }
 
 function onBuyMore() {
+  if (isPremium.value) return
   selectTab('premium')
 }
 </script>
@@ -156,7 +193,12 @@ function onBuyMore() {
 
       <div v-if="activeTab === 'premium' && premiumItem" :key="activeTab" class="premium">
         <EnterItem :order="2">
-        <button type="button" class="premium-card" @click="onBuy(premiumItem)">
+        <button
+          type="button"
+          class="premium-card"
+          :disabled="isPremium || purchasing"
+          @click="onBuy(premiumItem)"
+        >
           <span class="premium-card__shine" aria-hidden="true" />
           <div class="premium-card__icon-wrap">
             <span class="premium-card__glow" aria-hidden="true" />
@@ -167,8 +209,10 @@ function onBuyMore() {
             <span class="premium-card__title-tag">навсегда</span>
           </h3>
           <div class="premium-card__price">
-            <span class="premium-card__price-value">{{ premiumItem.price }}</span>
-            <span class="premium-card__price-currency">₽</span>
+            <span v-if="isPremium" class="premium-card__owned">Куплено</span>
+            <template v-else>
+              <span class="premium-card__price-value">{{ premiumPriceLabel }}</span>
+            </template>
           </div>
         </button>
         </EnterItem>
@@ -184,7 +228,72 @@ function onBuyMore() {
         </EnterItem>
       </div>
 
-      <div v-else :key="activeTab" class="grid">
+      <div v-else :key="activeTab" class="tab-content">
+        <button
+          v-if="activeTab === 'diamonds' && !isPremium"
+          type="button"
+          class="rewarded-card"
+          :disabled="watchingAd"
+          @click="onWatchAdForDiamonds"
+        >
+          <span class="rewarded-card__shine" aria-hidden="true" />
+          <span class="rewarded-card__spark rewarded-card__spark--1" aria-hidden="true">✦</span>
+          <span class="rewarded-card__spark rewarded-card__spark--2" aria-hidden="true">✦</span>
+
+          <span class="rewarded-card__icon-wrap">
+            <span class="rewarded-card__tag">БОНУС</span>
+            <span class="rewarded-card__icon-glow" aria-hidden="true" />
+            <span class="rewarded-card__icon-badge" aria-hidden="true">
+              <IconAdVideo class="rewarded-card__icon" />
+            </span>
+          </span>
+
+          <span class="rewarded-card__content">
+            <span class="rewarded-card__title">Смотреть рекламу</span>
+            <span class="rewarded-card__subtitle">Бесплатно за просмотр</span>
+          </span>
+
+          <span class="rewarded-card__loot">
+            <span class="rewarded-card__loot-glow" aria-hidden="true" />
+            <img :src="iconStone" alt="" class="rewarded-card__energy" />
+            <span class="rewarded-card__loot-value">+{{ REWARDED_DIAMONDS_AMOUNT }}</span>
+            <span class="rewarded-card__loot-label">алмазов</span>
+          </span>
+        </button>
+
+        <button
+          v-if="activeTab === 'energy' && !isPremium"
+          type="button"
+          class="rewarded-card"
+          :disabled="watchingAd"
+          @click="onWatchAdForEnergy"
+        >
+          <span class="rewarded-card__shine" aria-hidden="true" />
+          <span class="rewarded-card__spark rewarded-card__spark--1" aria-hidden="true">✦</span>
+          <span class="rewarded-card__spark rewarded-card__spark--2" aria-hidden="true">✦</span>
+
+          <span class="rewarded-card__icon-wrap">
+            <span class="rewarded-card__tag">БОНУС</span>
+            <span class="rewarded-card__icon-glow" aria-hidden="true" />
+            <span class="rewarded-card__icon-badge" aria-hidden="true">
+              <IconAdVideo class="rewarded-card__icon" />
+            </span>
+          </span>
+
+          <span class="rewarded-card__content">
+            <span class="rewarded-card__title">Смотреть рекламу</span>
+            <span class="rewarded-card__subtitle">Бесплатно за просмотр</span>
+          </span>
+
+          <span class="rewarded-card__loot">
+            <span class="rewarded-card__loot-glow" aria-hidden="true" />
+            <img :src="iconEnergy" alt="" class="rewarded-card__energy" />
+            <span class="rewarded-card__loot-value">+{{ REWARDED_ENERGY_AMOUNT }}</span>
+            <span class="rewarded-card__loot-label">энергия</span>
+          </span>
+        </button>
+
+        <div class="grid">
         <button
           v-for="item in items"
           :key="item.id"
@@ -198,11 +307,14 @@ function onBuyMore() {
           <div class="card-amount">{{ formatAmount(item) }}</div>
           <div class="card-price">{{ item.price }} ₽</div>
         </button>
+        </div>
       </div>
     </div>
 
-    <EnterItem :order="4" solo class="cta">
-      <AppButton variant="violet" @click="onBuyMore">Получить премиум</AppButton>
+    <EnterItem v-if="!isPremium" :order="4" solo class="cta">
+      <AppButton variant="violet" :disabled="purchasing" @click="onBuyMore">
+        {{ purchasing ? 'Оформление…' : 'Получить премиум' }}
+      </AppButton>
     </EnterItem>
   </div>
 </template>
@@ -508,6 +620,354 @@ function onBuyMore() {
   flex-shrink: 0;
   color: var(--accent);
   margin-top: 1px;
+}
+
+.tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rewarded-card {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 22px 14px 16px;
+  border: none;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #ffe45a 0%, #ffb020 42%, #ff8f0a 100%);
+  cursor: pointer;
+  font-family: inherit;
+  color: #fff;
+  outline: none;
+  overflow: hidden;
+  box-shadow:
+    0 5px 0 #c45f00,
+    0 14px 32px rgba(255, 120, 0, 0.45),
+    inset 0 2px 0 rgba(255, 255, 255, 0.55);
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.1s ease,
+    opacity 0.15s ease;
+}
+
+.rewarded-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  padding: 3px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 200, 80, 0.35) 100%);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.rewarded-card:not(:disabled):active {
+  transform: translateY(4px);
+  box-shadow:
+    0 1px 0 #c45f00,
+    0 8px 22px rgba(255, 120, 0, 0.38),
+    inset 0 2px 0 rgba(255, 255, 255, 0.45);
+}
+
+.rewarded-card:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.rewarded-card__shine {
+  position: absolute;
+  top: -50%;
+  left: -20%;
+  width: 55%;
+  height: 200%;
+  background: linear-gradient(
+    105deg,
+    transparent 38%,
+    rgba(255, 255, 255, 0.55) 48%,
+    transparent 58%
+  );
+  pointer-events: none;
+  animation: adCardShine 3.2s ease-in-out infinite;
+}
+
+@keyframes adCardShine {
+  0%,
+  100% {
+    transform: translateX(-120%) rotate(12deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  45% {
+    transform: translateX(280%) rotate(12deg);
+    opacity: 1;
+  }
+  55%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.rewarded-card__spark {
+  position: absolute;
+  font-size: 14px;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.9);
+  pointer-events: none;
+  animation: adSparkle 1.8s ease-in-out infinite;
+}
+
+.rewarded-card__spark--1 {
+  top: 14px;
+  right: 24px;
+  animation-delay: 0s;
+}
+
+.rewarded-card__spark--2 {
+  bottom: 10px;
+  left: 50%;
+  font-size: 11px;
+  animation-delay: 0.9s;
+}
+
+@keyframes adSparkle {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15) rotate(18deg);
+  }
+}
+
+.rewarded-card__tag {
+  position: absolute;
+  top: -4px;
+  right: -10px;
+  left: auto;
+  z-index: 3;
+  transform: rotate(-10deg);
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ff4d8e 0%, #e91e63 100%);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  white-space: nowrap;
+  box-shadow:
+    0 3px 0 rgba(180, 20, 80, 0.55),
+    0 5px 12px rgba(255, 77, 142, 0.45);
+}
+
+.rewarded-card__icon-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rewarded-card__icon-glow {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(177, 75, 255, 0.65) 0%,
+    rgba(255, 77, 142, 0.35) 45%,
+    transparent 70%
+  );
+  filter: blur(8px);
+  animation: adIconGlow 2s ease-in-out infinite;
+}
+
+@keyframes adIconGlow {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+.rewarded-card__icon-badge {
+  position: relative;
+  z-index: 1;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #c77dff 0%, #8b3dff 55%, #6a28d9 100%);
+  border: 3px solid rgba(255, 255, 255, 0.65);
+  box-shadow:
+    0 5px 0 #4a1899,
+    inset 0 2px 0 rgba(255, 255, 255, 0.4);
+  animation: adIconBounce 2.4s ease-in-out infinite;
+}
+
+@keyframes adIconBounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.rewarded-card__icon {
+  width: 32px;
+  height: 32px;
+  color: #fff;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25));
+}
+
+.rewarded-card__content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  text-align: left;
+  z-index: 1;
+}
+
+.rewarded-card__title {
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  color: #fff;
+  text-shadow:
+    0 2px 0 #b35a00,
+    0 3px 0 rgba(120, 50, 0, 0.35),
+    0 0 14px rgba(255, 240, 160, 0.65);
+}
+
+.rewarded-card__subtitle {
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 1px 2px rgba(140, 60, 0, 0.45);
+}
+
+.rewarded-card__loot {
+  position: relative;
+  flex-shrink: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 72px;
+  padding: 8px 10px 6px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f3ebff 100%);
+  border: 3px solid #fff;
+  box-shadow:
+    0 4px 0 rgba(120, 60, 200, 0.28),
+    inset 0 0 14px rgba(177, 75, 255, 0.12);
+}
+
+.rewarded-card__loot-glow {
+  position: absolute;
+  inset: -4px;
+  border-radius: 18px;
+  background: radial-gradient(
+    circle at 50% 40%,
+    rgba(100, 180, 255, 0.5) 0%,
+    transparent 65%
+  );
+  pointer-events: none;
+  animation: adLootGlow 1.6s ease-in-out infinite;
+}
+
+@keyframes adLootGlow {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.rewarded-card__energy {
+  position: relative;
+  z-index: 1;
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 8px rgba(60, 140, 255, 0.45));
+  animation: adEnergyPop 1.6s ease-in-out infinite;
+}
+
+@keyframes adEnergyPop {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+.rewarded-card__loot-value {
+  position: relative;
+  z-index: 1;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.8));
+}
+
+.rewarded-card__loot-label {
+  position: relative;
+  z-index: 1;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+
+.premium-card:disabled {
+  opacity: 0.85;
+  cursor: default;
+}
+
+.premium-card__owned {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
 /* Grid */

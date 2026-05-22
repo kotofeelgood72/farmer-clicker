@@ -14,6 +14,7 @@ import {
   msUntilNextRotation,
   type DailyDate,
 } from '@/data/dates'
+import { runAfterInterstitial } from '@/composables/useAdPlacements'
 import { useChatHistory } from '@/composables/useChatHistory'
 
 const { unreadTotal } = useChatHistory()
@@ -66,7 +67,7 @@ function onFindGirl() {
 
 function onOpen(item: DailyDate) {
   if (item.status === 'locked') return
-  void router.push(`/date/${item.id}`)
+  runAfterInterstitial(() => void router.push(`/date/${item.id}`), 'date_start')
 }
 
 function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {

@@ -7,6 +7,8 @@ defineProps<{
   show: boolean
   avatars: AvatarOption[]
   selected?: string | null
+  /** Подсказка: смена только после рекламы */
+  adHint?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -37,7 +39,10 @@ function onSelect(url: string) {
       >
         <div class="picker-sheet modal-surface">
           <div class="picker-head">
-            <h2 class="picker-title">Выберите аватар</h2>
+            <div class="picker-head-text">
+              <h2 class="picker-title">Выберите аватар</h2>
+              <p v-if="adHint" class="picker-hint">Смена — после просмотра рекламы</p>
+            </div>
             <button type="button" class="picker-close" aria-label="закрыть" @click="onBackdrop">
               <IconClose />
             </button>
@@ -95,11 +100,23 @@ function onSelect(url: string) {
   margin-bottom: 16px;
 }
 
+.picker-head-text {
+  min-width: 0;
+}
+
 .picker-title {
   margin: 0;
   font-size: 17px;
   font-weight: 700;
   color: var(--text);
+}
+
+.picker-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  line-height: 1.3;
 }
 
 .picker-close {

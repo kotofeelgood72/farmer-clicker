@@ -8,11 +8,15 @@ import MatchOverlay from '@/components/MatchOverlay.vue'
 import IconCloseX from '@/components/icons/IconCloseX.vue'
 import IconVerified from '~icons/solar/verified-check-bold'
 import IconFire from '~icons/solar/fire-bold'
+import IconAdPlay from '~icons/solar/play-circle-bold'
 import heartImg from '@/assets/ui/hearth.png'
 import energyImg from '@/assets/ui/energy.png'
 import { GIRLS, type GirlProfile } from '@/data/girls'
 import { useChatHistory } from '@/composables/useChatHistory'
 import { SWIPE_ENERGY_COST, useEnergy } from '@/composables/useEnergy'
+import { usePremium } from '@/composables/usePremium'
+import { useRewardedEnergy } from '@/composables/useRewardedEnergy'
+import { runAfterInterstitial } from '@/composables/useAdPlacements'
 import { useAchievements } from '@/composables/useAchievements'
 import { usePlayerStats } from '@/composables/usePlayerStats'
 import EnterItem from '@/components/EnterItem.vue'
@@ -20,6 +24,8 @@ import EnterItem from '@/components/EnterItem.vue'
 const router = useRouter()
 const { touchChat, hasActiveChat } = useChatHistory()
 const { energy, canSpend, spend } = useEnergy()
+const { isPremium } = usePremium()
+const { watchAdForEnergy, watching: watchingAd } = useRewardedEnergy()
 const { recordProfileSeen } = usePlayerStats()
 const { trackSwipeEnergy, trackMatch } = useAchievements()
 
@@ -69,8 +75,11 @@ const likeOpacity = computed(() =>
 const nopeOpacity = computed(() =>
   Math.max(0, Math.min(1, -dragX.value / SWIPE_FADE_DISTANCE)),
 )
-const likeScale = computed(() => 0.75 + likeOpacity.value * 0.35)
-const nopeScale = computed(() => 0.75 + nopeOpacity.value * 0.35)
+const swipeActionsLocked = computed(
+  () => animating.value || !canSpend(SWIPE_ENERGY_COST),
+)
+const showEnergyBoost = computed(() => isPremium.value || energy.value > 0)
+const energyBadgeLabel = computed(() => (isPremium.value ? '∞' : String(energy.value)))
 
 let startX = 0
 let startY = 0
@@ -182,16 +191,26 @@ function advance(direction: 'left' | 'right') {
 
 function onLike() {
   if (animating.value || !canSpend(SWIPE_ENERGY_COST)) return
+  dragX.value = SWIPE_FADE_DISTANCE
   flyOff('right')
 }
 
 function onSkip() {
   if (animating.value || !canSpend(SWIPE_ENERGY_COST)) return
+  dragX.value = -SWIPE_FADE_DISTANCE
   flyOff('left')
 }
 
-function onOpenShop() {
-  void router.push({ path: '/shop', query: { tab: 'energy' } })
+function onEnergyBoost() {
+  if (isPremium.value) {
+    void router.push({ path: '/shop', query: { tab: 'premium' } })
+    return
+  }
+  if (energy.value > 0) {
+    void router.push({ path: '/shop', query: { tab: 'energy' } })
+    return
+  }
+  watchAdForEnergy()
 }
 
 function onBack() {
@@ -200,8 +219,10 @@ function onBack() {
 
 function onMatchMessage() {
   const id = matchedCharacter.value?.id
-  matchVisible.value = false
-  if (id != null) void router.push(`/chat/${id}`)
+  runAfterInterstitial(() => {
+    matchVisible.value = false
+    if (id != null) void router.push(`/chat/${id}`)
+  }, 'match_message')
 }
 
 function onMatchContinue() {
@@ -267,9 +288,11 @@ onUnmounted(() => {
           <span v-if="!current.image" class="card-letter">{{ current.name.charAt(0) }}</span>
           <button
             class="skip-pill"
+            type="button"
+            :disabled="swipeActionsLocked"
             :style="{
               opacity: 1 - nopeOpacity,
-              pointerEvents: nopeOpacity > 0 ? 'none' : 'auto',
+              pointerEvents: nopeOpacity > 0 || swipeActionsLocked ? 'none' : 'auto',
             }"
             @pointerdown.stop
             @click.stop="onSkip"
@@ -290,43 +313,63 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- swipe stamps (Tinder-style) -->
-        <div class="overlay overlay--like" :style="{ opacity: likeOpacity }">
-          <span
-            class="stamp stamp--like"
-            :style="{ transform: `rotate(-18deg) scale(${likeScale})` }"
-          >
-            НРАВИТСЯ
-          </span>
-        </div>
-        <div class="overlay overlay--nope" :style="{ opacity: nopeOpacity }">
-          <span
-            class="stamp stamp--nope"
-            :style="{ transform: `rotate(18deg) scale(${nopeScale})` }"
-          >
-            НЕТ
-          </span>
-        </div>
+        <div
+          class="swipe-tint swipe-tint--like"
+          :style="{ opacity: likeOpacity }"
+          aria-hidden="true"
+        />
+        <div
+          class="swipe-tint swipe-tint--nope"
+          :style="{ opacity: nopeOpacity }"
+          aria-hidden="true"
+        />
       </div>
     </div>
 
     <!-- action buttons -->
     <EnterItem v-if="hasSwipeCards" :order="1" solo class="actions page-enter" :class="{ 'actions--locked': matchVisible }">
-      <button class="action action--skip" :disabled="animating" @click="onSkip">
+      <button
+        class="action action--skip"
+        type="button"
+        :disabled="swipeActionsLocked"
+        @click="onSkip"
+      >
         <IconCloseX class="action-icon action-icon--close" />
       </button>
-      <button class="action action--like" :disabled="animating" @click="onLike">
+      <button
+        class="action action--like"
+        type="button"
+        :disabled="swipeActionsLocked"
+        @click="onLike"
+      >
         <img :src="heartImg" alt="лайк" class="action-img" />
       </button>
       <button
         class="action action--boost"
         type="button"
-        :aria-label="`Энергия: ${energy}`"
-        @click="onOpenShop"
+        :class="{
+          'action--boost-ad': !showEnergyBoost,
+          'action--boost-loading': watchingAd,
+        }"
+        :disabled="watchingAd"
+        :aria-label="
+          showEnergyBoost ? `Энергия: ${energyBadgeLabel}` : 'Смотреть рекламу за энергию'
+        "
+        @click="onEnergyBoost"
       >
-        <img :src="energyImg" alt="" class="action-img action-img--energy" />
-        <span class="action-badge" :class="{ 'action-badge--empty': energy <= 0 }">
-          {{ energy }}
+        <img
+          v-if="showEnergyBoost"
+          :src="energyImg"
+          alt=""
+          class="action-img action-img--energy"
+        />
+        <IconAdPlay v-else class="action-icon action-icon--ad" />
+        <span
+          v-if="showEnergyBoost"
+          class="action-badge"
+          :class="{ 'action-badge--empty': !isPremium && energy <= 0 }"
+        >
+          {{ energyBadgeLabel }}
         </span>
       </button>
     </EnterItem>
@@ -567,51 +610,22 @@ onUnmounted(() => {
   color: #fff;
 }
 
-/* swipe stamps */
-.overlay {
+/* swipe color tint — opacity driven by dragX */
+.swipe-tint {
   position: absolute;
   inset: 0;
-  pointer-events: none;
   z-index: 3;
+  pointer-events: none;
+  border-radius: inherit;
+  will-change: opacity;
 }
 
-.overlay--like {
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
-  padding: 28px 24px;
+.swipe-tint--like {
+  background: rgba(46, 199, 107, 0.72);
 }
 
-.overlay--nope {
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
-  padding: 28px 24px;
-}
-
-.stamp {
-  font-size: 40px;
-  font-weight: 800;
-  letter-spacing: 2px;
-  line-height: 1;
-  text-transform: uppercase;
-  padding: 6px 14px;
-  border: 5px solid currentColor;
-  border-radius: 6px;
-  background: transparent;
-  user-select: none;
-  transform-origin: center;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
-}
-
-.stamp--like {
-  color: #2ee06f;
-  font-size: 34px;
-  letter-spacing: 1px;
-}
-
-.stamp--nope {
-  color: #ff4458;
+.swipe-tint--nope {
+  background: rgba(255, 61, 90, 0.72);
 }
 
 /* action buttons */
@@ -682,6 +696,22 @@ onUnmounted(() => {
   border: 1px solid rgba(95, 184, 255, 0.45);
   box-shadow: 0 6px 18px rgba(95, 184, 255, 0.2);
   position: relative;
+}
+
+.action--boost-ad {
+  background: rgba(255, 184, 61, 0.28);
+  border: 1px solid rgba(255, 184, 61, 0.55);
+  box-shadow: 0 6px 18px rgba(255, 184, 61, 0.25);
+}
+
+.action--boost-loading {
+  opacity: 0.75;
+}
+
+.action-icon--ad {
+  width: 34px;
+  height: 34px;
+  color: #ff9f1a;
 }
 
 .action-img--energy {

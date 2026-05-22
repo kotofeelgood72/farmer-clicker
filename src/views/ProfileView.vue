@@ -6,6 +6,8 @@ import AppButton from '@/components/AppButton.vue'
 import BottomNav from '@/components/BottomNav.vue'
 import AvatarPicker from '@/components/AvatarPicker.vue'
 import EnterItem from '@/components/EnterItem.vue'
+import { canShowAds, showRewarded } from '@/ads/ads'
+import { requestGameReviewNow } from '@/composables/useGameReview'
 import { useUserAvatar } from '@/composables/useUserAvatar'
 import { useChatHistory } from '@/composables/useChatHistory'
 import { resetAllGameProgress } from '@/composables/useGameReset'
@@ -35,7 +37,9 @@ const { avatars, selectedAvatar, setAvatar } = useUserAvatar()
 const { unreadTotal } = useChatHistory()
 const { stats: playerStats, refresh: refreshStats } = usePlayerStats()
 const { profilePreview, refreshAchievements } = useAchievements()
+const adsEnabled = canShowAds()
 const showAvatarPicker = ref(false)
+const ratingBusy = ref(false)
 
 function refreshProfile() {
   refreshStats()
@@ -65,11 +69,36 @@ function onCloseAvatarPicker() {
 }
 
 function onSelectAvatar(url: string) {
-  setAvatar(url)
+  if (url === selectedAvatar.value) {
+    onCloseAvatarPicker()
+    return
+  }
+
+  const apply = () => {
+    setAvatar(url)
+    onCloseAvatarPicker()
+  }
+
+  if (!adsEnabled) {
+    apply()
+    return
+  }
+
+  showRewarded(apply)
 }
 
 function onBack() { void router.push('/main') }
 function onOpenAchievements() { void router.push('/achievements') }
+
+async function onRateGame() {
+  if (ratingBusy.value) return
+  ratingBusy.value = true
+  try {
+    await requestGameReviewNow()
+  } finally {
+    ratingBusy.value = false
+  }
+}
 
 function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   if (tab === 'profile') return
@@ -170,7 +199,13 @@ function onResetProgress() {
         </div>
       </EnterItem>
 
-      <EnterItem :order="5" tag="section" class="reset-section">
+      <EnterItem :order="5" tag="section" class="rate-section">
+        <AppButton variant="secondary" :disabled="ratingBusy" @click="onRateGame">
+          Оценить игру
+        </AppButton>
+      </EnterItem>
+
+      <EnterItem :order="6" tag="section" class="reset-section">
         <AppButton variant="danger" @click="onResetProgress">Сброс</AppButton>
       </EnterItem>
     </div>
@@ -186,6 +221,7 @@ function onResetProgress() {
       :show="showAvatarPicker"
       :avatars="avatars"
       :selected="selectedAvatar"
+      :ad-hint="adsEnabled"
       @close="onCloseAvatarPicker"
       @select="onSelectAvatar"
     />
@@ -247,8 +283,12 @@ function onResetProgress() {
   flex-shrink: 0;
 }
 
+.rate-section {
+  margin: 4px 0 0;
+}
+
 .reset-section {
-  margin: 4px 0 8px;
+  margin: 8px 0 8px;
 }
 .scroll::-webkit-scrollbar { display: none; }
 

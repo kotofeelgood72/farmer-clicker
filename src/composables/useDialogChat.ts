@@ -1,4 +1,5 @@
 import { computed, onUnmounted, ref, watch, type ComputedRef } from 'vue'
+import { parsePhotoPlaceholder } from '@/domain/dialog/parseDialog'
 import type { GirlDialog, DialogNode } from '@/domain/dialog/types'
 
 export type ChatSender = 'them' | 'me'
@@ -8,6 +9,7 @@ export interface ChatMessage {
   sender: ChatSender
   text: string
   time: string
+  image?: string
 }
 
 export interface ChatReply {
@@ -83,16 +85,51 @@ function typingDelayMs(text: string): number {
   return Math.min(base + text.length * perChar, 3500)
 }
 
-function seedMessages(node: DialogNode): ChatMessage[] {
-  return [{ id: 1, sender: 'them', text: node.text, time: nowTime() }]
+function messageFromNode(
+  node: DialogNode,
+  resolvePhoto?: (photoIndex: number) => string | undefined,
+): Pick<ChatMessage, 'text' | 'image'> {
+  if (node.photoIndex && resolvePhoto) {
+    const image = resolvePhoto(node.photoIndex)
+    if (image) return { text: '', image }
+  }
+  return { text: node.text }
+}
+
+function seedMessages(
+  node: DialogNode,
+  resolvePhoto?: (photoIndex: number) => string | undefined,
+): ChatMessage[] {
+  return [{ id: 1, sender: 'them', time: nowTime(), ...messageFromNode(node, resolvePhoto) }]
+}
+
+function enrichPhotoMessages(
+  msgs: ChatMessage[],
+  dialog: GirlDialog,
+  resolvePhoto?: (photoIndex: number) => string | undefined,
+): ChatMessage[] {
+  if (!resolvePhoto) return msgs
+  const photoIndices = dialog.nodes
+    .filter((n) => n.photoIndex)
+    .map((n) => n.photoIndex!)
+  let photoMsgIdx = 0
+  return msgs.map((m) => {
+    if (m.image) return m
+    if (m.sender !== 'them' || !parsePhotoPlaceholder(m.text).isPhoto) return m
+    const idx = photoIndices[photoMsgIdx++]
+    if (!idx) return m
+    const image = resolvePhoto(idx)
+    return image ? { ...m, text: '', image } : m
+  })
 }
 
 export interface UseDialogChatOptions {
   dialog: ComputedRef<GirlDialog | undefined>
   storageKey: ComputedRef<string>
+  resolvePhoto?: (photoIndex: number) => string | undefined
 }
 
-export function useDialogChat({ dialog, storageKey }: UseDialogChatOptions) {
+export function useDialogChat({ dialog, storageKey, resolvePhoto }: UseDialogChatOptions) {
   const nodeIndex = ref(0)
   const affection = ref(0)
   const messages = ref<ChatMessage[]>([])
@@ -117,7 +154,7 @@ export function useDialogChat({ dialog, storageKey }: UseDialogChatOptions) {
     if (saved && saved.messages.length > 0) {
       nodeIndex.value = saved.nodeIndex
       affection.value = saved.affection
-      messages.value = saved.messages
+      messages.value = enrichPhotoMessages(saved.messages, d, resolvePhoto)
       nextId.value = Math.max(...saved.messages.map((m) => m.id), 1) + 1
       return
     }
@@ -127,7 +164,7 @@ export function useDialogChat({ dialog, storageKey }: UseDialogChatOptions) {
 
     nodeIndex.value = 0
     affection.value = 0
-    messages.value = seedMessages(first)
+    messages.value = seedMessages(first, resolvePhoto)
     nextId.value = 2
     persist()
   }
@@ -216,8 +253,8 @@ export function useDialogChat({ dialog, storageKey }: UseDialogChatOptions) {
         messages.value.push({
           id: nextId.value++,
           sender: 'them',
-          text: next.text,
           time: nowTime(),
+          ...messageFromNode(next, resolvePhoto),
         })
         persist()
       }, typingDelayMs(next.text))

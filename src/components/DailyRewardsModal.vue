@@ -12,13 +12,18 @@ import rewardStones from '@/assets/ui/stones.png'
 
 import IconCheck from '~icons/solar/check-circle-bold'
 import IconLock from '~icons/solar/lock-bold'
+import IconAdVideo from '~icons/solar/clapperboard-play-bold'
 
 const {
   streakDay,
   cards,
+  todayRewardDoubled,
   canClaimToday,
+  canClaimDoubledViaAd,
+  claimingAd,
   isModalOpen,
   claimToday,
+  claimTodayDoubledViaAd,
   closeModal,
 } = useDailyRewards()
 
@@ -40,6 +45,14 @@ function cardLabel(card: DailyRewardCard): string {
 
 function onClaim() {
   claimToday()
+}
+
+function onClaimDoubled() {
+  claimTodayDoubledViaAd()
+}
+
+function rewardUnit(type: 'diamonds' | 'energy') {
+  return type === 'diamonds' ? 'алмазов' : 'энергии'
 }
 
 function onBackdrop() {
@@ -94,13 +107,39 @@ function onBackdrop() {
             </div>
           </div>
 
-        <AppButton
-          class="daily-claim"
-          :disabled="!canClaimToday"
-          @click="onClaim"
-        >
-          Забрать награду
-        </AppButton>
+        <div class="daily-actions">
+          <AppButton
+            class="daily-claim"
+            variant="secondary"
+            :disabled="!canClaimToday || claimingAd"
+            @click="onClaim"
+          >
+            Забрать награду
+          </AppButton>
+
+          <button
+            v-if="canClaimDoubledViaAd"
+            type="button"
+            class="daily-claim-x2"
+            :disabled="!canClaimToday || claimingAd"
+            @click="onClaimDoubled"
+          >
+            <span class="daily-claim-x2__icon" aria-hidden="true">
+              <IconAdVideo />
+            </span>
+            <span class="daily-claim-x2__text">
+              <span class="daily-claim-x2__title">Получить награду x2</span>
+              <span
+                v-if="todayRewardDoubled"
+                class="daily-claim-x2__hint"
+              >
+                +{{ todayRewardDoubled.amount }}
+                {{ rewardUnit(todayRewardDoubled.type) }}
+                за просмотр рекламы
+              </span>
+            </span>
+          </button>
+        </div>
       </div>
     </div>
   </Transition>
@@ -255,8 +294,111 @@ function onBackdrop() {
   height: 12px;
 }
 
-.daily-claim {
-  margin-top: 2px;
+.daily-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+:deep(.daily-claim.app-btn) {
+  background: transparent;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: 15px;
+  font-weight: 700;
+  padding: 10px 16px;
+}
+
+:deep(.daily-claim.app-btn:active:not(:disabled)) {
+  transform: none;
+  box-shadow: none;
+  color: var(--accent);
+}
+
+:deep(.daily-claim.app-btn:disabled) {
+  color: var(--text-dim);
+}
+
+.daily-claim-x2 {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffe45a 0%, #ffb020 48%, #ff8f0a 100%);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  outline: none;
+  box-shadow:
+    0 4px 0 #c45f00,
+    0 10px 24px rgba(255, 120, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.1s ease,
+    opacity 0.15s ease;
+}
+
+.daily-claim-x2:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow:
+    0 1px 0 #c45f00,
+    0 6px 16px rgba(255, 120, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.daily-claim-x2:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.daily-claim-x2__icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #c77dff 0%, #6a28d9 100%);
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 3px 0 #4a1899;
+  color: #fff;
+}
+
+.daily-claim-x2__icon :deep(svg) {
+  width: 24px;
+  height: 24px;
+}
+
+.daily-claim-x2__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.daily-claim-x2__title {
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.15;
+  color: #fff;
+  text-shadow:
+    0 2px 0 #b35a00,
+    0 0 10px rgba(255, 240, 160, 0.5);
+}
+
+.daily-claim-x2__hint {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 2px rgba(140, 60, 0, 0.4);
 }
 
 .daily-fade-enter-active,
