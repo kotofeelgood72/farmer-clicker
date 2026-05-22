@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import AppButton from '@/components/AppButton.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import CoverImage from '@/components/CoverImage.vue'
@@ -14,6 +13,7 @@ import {
   msUntilNextRotation,
   type DailyDate,
 } from '@/data/dates'
+import { useAppNavigation } from '@/composables/useAppNavigation'
 import { runAfterInterstitial } from '@/composables/useAdPlacements'
 import { useChatHistory } from '@/composables/useChatHistory'
 
@@ -21,7 +21,7 @@ const { unreadTotal } = useChatHistory()
 
 type Tab = 'available' | 'past'
 
-const router = useRouter()
+const { pushFrom, back, router } = useAppNavigation()
 
 const tab = ref<Tab>('available')
 const dailyDates = ref<DailyDate[]>(generateDailyDates())
@@ -59,7 +59,9 @@ const showNoDateModal = computed(
   () => tab.value === 'available' && !hasDateAgreement.value,
 )
 
-function onBack() { void router.push('/main') }
+function onBack() {
+  back('/main')
+}
 
 function onFindGirl() {
   void router.push('/swipe')
@@ -67,7 +69,7 @@ function onFindGirl() {
 
 function onOpen(item: DailyDate) {
   if (item.status === 'locked') return
-  runAfterInterstitial(() => void router.push(`/date/${item.id}`), 'date_start')
+  runAfterInterstitial(() => void pushFrom(`/date/${item.id}`), 'date_start')
 }
 
 function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {

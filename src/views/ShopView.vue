@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import AppButton from '@/components/AppButton.vue'
 
@@ -13,6 +13,7 @@ import { useAchievements } from '@/composables/useAchievements'
 import { useDiamonds } from '@/composables/useDiamonds'
 import { useEnergy } from '@/composables/useEnergy'
 import { usePremium } from '@/composables/usePremium'
+import { useAppNavigation } from '@/composables/useAppNavigation'
 import { useRewardedDiamonds } from '@/composables/useRewardedDiamonds'
 import { useRewardedEnergy } from '@/composables/useRewardedEnergy'
 import { fetchPremiumCatalogProduct, type YsdkProduct } from '@/yandex/payments'
@@ -34,8 +35,8 @@ interface ShopItem {
   label?: string
 }
 
-const router = useRouter()
 const route = useRoute()
+const { back } = useAppNavigation()
 const { energy, add: addEnergy } = useEnergy()
 const { diamonds, add: addDiamonds } = useDiamonds()
 const { isPremium, purchasing, purchasePremium } = usePremium()
@@ -126,7 +127,7 @@ function formatAmount(item: ShopItem): string {
 }
 
 function onBack() {
-  void router.push('/main')
+  back('/main')
 }
 
 async function onBuy(item: ShopItem) {

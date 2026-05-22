@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, onActivated, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import AppButton from '@/components/AppButton.vue'
 import BottomNav from '@/components/BottomNav.vue'
 import AvatarPicker from '@/components/AvatarPicker.vue'
 import EnterItem from '@/components/EnterItem.vue'
 import { canShowAds, showRewarded } from '@/ads/ads'
+import { useAppNavigation } from '@/composables/useAppNavigation'
 import { requestGameReviewNow } from '@/composables/useGameReview'
 import { useUserAvatar } from '@/composables/useUserAvatar'
 import { useChatHistory } from '@/composables/useChatHistory'
@@ -32,7 +32,7 @@ interface Stat {
   iconKey: 'forms' | 'matches' | 'dialogs' | 'dates'
 }
 
-const router = useRouter()
+const { pushFrom, back, router } = useAppNavigation()
 const { avatars, selectedAvatar, setAvatar } = useUserAvatar()
 const { unreadTotal } = useChatHistory()
 const { stats: playerStats, refresh: refreshStats } = usePlayerStats()
@@ -87,8 +87,12 @@ function onSelectAvatar(url: string) {
   showRewarded(apply)
 }
 
-function onBack() { void router.push('/main') }
-function onOpenAchievements() { void router.push('/achievements') }
+function onBack() {
+  back('/main')
+}
+function onOpenAchievements() {
+  void pushFrom('/achievements')
+}
 
 async function onRateGame() {
   if (ratingBusy.value) return

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onActivated, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
+import { useAppNavigation } from '@/composables/useAppNavigation'
 import { useAchievements } from '@/composables/useAchievements'
 import type { AchievementCategory, AchievementRarity } from '@/data/achievements'
 
@@ -16,7 +16,7 @@ import IconLock from '~icons/solar/lock-bold'
 import IconCheck from '~icons/solar/check-circle-bold'
 import EnterItem from '@/components/EnterItem.vue'
 
-const router = useRouter()
+const { back } = useAppNavigation()
 const {
   achievements,
   totals,
@@ -55,7 +55,7 @@ const rarityFilters: { value: 'all' | AchievementRarity; label: string }[] = [
 ]
 
 function onBack() {
-  void router.push('/profile')
+  back('/profile')
 }
 
 function rarityLabel(r: AchievementRarity) {

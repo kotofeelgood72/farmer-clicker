@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import gsap from 'gsap'
 
 import PageHeader from '@/components/PageHeader.vue'
@@ -16,12 +15,13 @@ import { useChatHistory } from '@/composables/useChatHistory'
 import { SWIPE_ENERGY_COST, useEnergy } from '@/composables/useEnergy'
 import { usePremium } from '@/composables/usePremium'
 import { useRewardedEnergy } from '@/composables/useRewardedEnergy'
+import { useAppNavigation } from '@/composables/useAppNavigation'
 import { runAfterInterstitial } from '@/composables/useAdPlacements'
 import { useAchievements } from '@/composables/useAchievements'
 import { usePlayerStats } from '@/composables/usePlayerStats'
 import EnterItem from '@/components/EnterItem.vue'
 
-const router = useRouter()
+const { pushFrom, back, router } = useAppNavigation()
 const { touchChat, hasActiveChat } = useChatHistory()
 const { energy, canSpend, spend } = useEnergy()
 const { isPremium } = usePremium()
@@ -203,25 +203,25 @@ function onSkip() {
 
 function onEnergyBoost() {
   if (isPremium.value) {
-    void router.push({ path: '/shop', query: { tab: 'premium' } })
+    void pushFrom({ path: '/shop', query: { tab: 'premium' } })
     return
   }
   if (energy.value > 0) {
-    void router.push({ path: '/shop', query: { tab: 'energy' } })
+    void pushFrom({ path: '/shop', query: { tab: 'energy' } })
     return
   }
   watchAdForEnergy()
 }
 
 function onBack() {
-  void router.push('/main')
+  back('/main')
 }
 
 function onMatchMessage() {
   const id = matchedCharacter.value?.id
   runAfterInterstitial(() => {
     matchVisible.value = false
-    if (id != null) void router.push(`/chat/${id}`)
+    if (id != null) void pushFrom(`/chat/${id}`)
   }, 'match_message')
 }
 

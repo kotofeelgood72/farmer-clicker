@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onActivated, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 
 import PageHeader from '@/components/PageHeader.vue'
 import AppButton from '@/components/AppButton.vue'
@@ -16,10 +16,11 @@ import {
   getGirlRelationship,
   getNextRelationshipUnlocks,
 } from '@/composables/useRelationshipLevel'
+import { useAppNavigation } from '@/composables/useAppNavigation'
 import EnterItem from '@/components/EnterItem.vue'
 
-const router = useRouter()
 const route = useRoute()
+const { pushFrom, back } = useAppNavigation()
 
 const girlId = computed(() => {
   const id = Number(route.params.id)
@@ -43,11 +44,11 @@ onActivated(() => {
 })
 
 function onBack() {
-  void router.back()
+  back('/chats')
 }
 
 function onOpenChat() {
-  void router.push(`/chat/${girlId.value}`)
+  void pushFrom(`/chat/${girlId.value}`)
 }
 
 const gallery = computed(() => girl.value.gallery)

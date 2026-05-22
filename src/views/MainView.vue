@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, nextTick, onActivated, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import AppHeader from '@/components/AppHeader.vue'
 import BottomNav from '@/components/BottomNav.vue'
 import BackgroundLobbyChat from '@/components/BackgroundLobbyChat.vue'
@@ -14,6 +13,7 @@ import { useDailyRewards } from '@/composables/useDailyRewards'
 import { tryStartMainOnboarding } from '@/composables/useOnboarding'
 import { useDiamonds } from '@/composables/useDiamonds'
 import { useEnergy } from '@/composables/useEnergy'
+import { useAppNavigation } from '@/composables/useAppNavigation'
 import { getRelationshipLevel } from '@/composables/useRelationshipLevel'
 import 'swiper/css'
 
@@ -33,7 +33,7 @@ const tileIcons: Record<string, string> = {
   shop: tileMedal,
 }
 
-const router = useRouter()
+const { pushFrom, router } = useAppNavigation()
 const { energy } = useEnergy()
 const { diamonds } = useDiamonds()
 const { streakDay, cards, canClaimToday, syncAndShowModal, openModal, isModalOpen } =
@@ -106,7 +106,7 @@ const continueChats = computed<ContinueChatItem[]>(() =>
 )
 
 function onOpenChat(girlId: number) {
-  void router.push(`/chat/${girlId}`)
+  void pushFrom(`/chat/${girlId}`)
 }
 
 const tiles = [
@@ -141,8 +141,8 @@ function onTile(id: string) {
         :energy="energy"
         :diamonds="diamonds"
         @profile="router.push('/profile')"
-        @shop="router.push({ path: '/shop', query: { tab: 'diamonds' } })"
-        @shop-energy="router.push({ path: '/shop', query: { tab: 'energy' } })"
+        @shop="pushFrom({ path: '/shop', query: { tab: 'diamonds' } })"
+        @shop-energy="pushFrom({ path: '/shop', query: { tab: 'energy' } })"
       />
     </EnterItem>
 

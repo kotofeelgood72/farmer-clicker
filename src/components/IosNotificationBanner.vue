@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
+import { useAppNavigation } from '@/composables/useAppNavigation'
 import {
   useInAppNotifications,
   type InAppNotification,
@@ -12,7 +12,7 @@ import IconChat from '~icons/solar/chat-round-dots-bold'
 import IconCalendar from '~icons/solar/calendar-bold'
 import IconClose from '~icons/solar/close-circle-bold'
 
-const router = useRouter()
+const { pushFrom } = useAppNavigation()
 const { visible, dismissing, dismiss, tapNotification } = useInAppNotifications()
 
 const iconByType: Record<InAppNotificationType, typeof IconCup> = {
@@ -37,7 +37,7 @@ function iconFor(n: InAppNotification) {
 
 function onTap(n: InAppNotification) {
   const to = tapNotification(n)
-  if (to) void router.push(to)
+  if (to) void pushFrom(to)
 }
 
 function onDismiss() {

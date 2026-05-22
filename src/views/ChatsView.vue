@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, useTemplateRef } from 'vue'
-import { useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import BottomNav from '@/components/BottomNav.vue'
 import CoverImage from '@/components/CoverImage.vue'
@@ -14,6 +13,7 @@ import {
   useChatHistory,
 } from '@/composables/useChatHistory'
 import { isGirlChatAwaitingReply, isGirlChatCompleted } from '@/composables/useGirlChat'
+import { useAppNavigation } from '@/composables/useAppNavigation'
 import { GIRLS, getGirlAvatarImage } from '@/data/girls'
 
 interface ChatListItem {
@@ -26,7 +26,7 @@ interface ChatListItem {
   completed: boolean
 }
 
-const router = useRouter()
+const { pushFrom, back, router } = useAppNavigation()
 const { recentChats, markChatRead, unreadTotal } = useChatHistory()
 
 const chats = computed<ChatListItem[]>(() =>
@@ -60,7 +60,7 @@ const filtered = computed(() => {
 })
 
 function onBack() {
-  void router.push('/main')
+  back('/main')
 }
 
 async function onToggleSearch() {
@@ -84,12 +84,12 @@ function girlImage(id: number) {
 }
 
 function onOpenProfile(girlId: number) {
-  void router.push(`/relationship/${girlId}`)
+  void pushFrom(`/relationship/${girlId}`)
 }
 
 function onOpenChat(chat: ChatListItem) {
   markChatRead(chat.id)
-  void router.push(`/chat/${chat.id}`)
+  void pushFrom(`/chat/${chat.id}`)
 }
 
 function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {

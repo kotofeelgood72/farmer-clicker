@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, useTemplateRef, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import QuickReply from '@/components/QuickReply.vue'
 import IconCheckRead from '~icons/solar/check-read-outline'
@@ -8,13 +8,14 @@ import ChatTypingIndicator from '@/components/ChatTypingIndicator.vue'
 import { getDailyDateById } from '@/data/dates'
 import { useAchievements } from '@/composables/useAchievements'
 import { fireConfetti } from '@/composables/useConfetti'
+import { useAppNavigation } from '@/composables/useAppNavigation'
 import { maybeInterstitialOnReply, runAfterInterstitial } from '@/composables/useAdPlacements'
 import { useDiamonds } from '@/composables/useDiamonds'
 import { useMeetingChat } from '@/composables/useMeetingChat'
 import EnterItem from '@/components/EnterItem.vue'
 
-const router = useRouter()
 const route = useRoute()
+const { pushFrom, back } = useAppNavigation()
 const { canSpend, spend } = useDiamonds()
 const {
   trackDiamondsSpent,
@@ -87,7 +88,7 @@ watch(
 onMounted(() => void scrollToBottom())
 
 function onBack() {
-  const go = () => void router.push('/dates')
+  const go = () => back('/dates')
   if (dialogComplete.value) {
     runAfterInterstitial(go, 'date_complete', { reviewAfter: true })
   } else {
@@ -97,11 +98,11 @@ function onBack() {
 
 function onPick(reply: { id: number; text: string; cost: number }) {
   if (!canSpend(reply.cost)) {
-    void router.push('/shop')
+    void pushFrom('/shop')
     return
   }
   if (!spend(reply.cost)) {
-    void router.push('/shop')
+    void pushFrom('/shop')
     return
   }
   trackDiamondsSpent(reply.cost)

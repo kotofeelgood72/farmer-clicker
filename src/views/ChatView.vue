@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 
 import IconArrowLeft from '~icons/solar/arrow-left-linear'
 import { GIRLS } from '@/data/girls'
@@ -16,6 +16,7 @@ import {
   syncAwaitingReplyForGirl,
   useChatHistory,
 } from '@/composables/useChatHistory'
+import { useAppNavigation } from '@/composables/useAppNavigation'
 import { maybeInterstitialOnReply, runAfterInterstitial } from '@/composables/useAdPlacements'
 import { useDiamonds } from '@/composables/useDiamonds'
 import { computeReplyCost } from '@/composables/useDialogChat'
@@ -42,8 +43,8 @@ interface FallbackReply {
   cost: number
 }
 
-const router = useRouter()
 const route = useRoute()
+const { pushFrom, back } = useAppNavigation()
 const { touchChat, markChatRead } = useChatHistory()
 const { diamonds, canSpend, spend } = useDiamonds()
 const {
@@ -159,11 +160,11 @@ function sendReply(reply: ChatReply | FallbackReply) {
 
 function onPickReply(reply: ChatReply | FallbackReply) {
   if (!canSpend(reply.cost)) {
-    void router.push('/shop')
+    void pushFrom('/shop')
     return
   }
   if (!spend(reply.cost)) {
-    void router.push('/shop')
+    void pushFrom('/shop')
     return
   }
 
@@ -221,7 +222,7 @@ onUnmounted(() => {
 })
 
 function onBack() {
-  const go = () => void router.push('/chats')
+  const go = () => back('/chats')
   if (chatComplete.value) {
     runAfterInterstitial(go, 'chat_complete', { reviewAfter: true })
   } else {
@@ -230,19 +231,19 @@ function onBack() {
 }
 
 function onOpenShop() {
-  void router.push('/shop')
+  void pushFrom('/shop')
 }
 
 function onOpenProfile() {
-  void router.push(`/relationship/${girlId.value}`)
+  void pushFrom(`/relationship/${girlId.value}`)
 }
 
 function onGoToDate() {
   const daily = getDailyDateByGirlId(girlId.value)
   runAfterInterstitial(
     () => {
-      if (daily) void router.push(`/date/${daily.id}`)
-      else void router.push('/dates')
+      if (daily) void pushFrom(`/date/${daily.id}`)
+      else void pushFrom('/dates')
     },
     'chat_complete_date',
     { reviewAfter: true },
