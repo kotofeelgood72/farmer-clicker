@@ -127,8 +127,8 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 }
 
 function onTile(id: string) {
-  if (id === 'dates') void router.push('/dates')
-  else if (id === 'shop') void router.push('/shop')
+  if (id === 'dates') void pushFrom('/dates')
+  else if (id === 'shop') void pushFrom('/shop')
 }
 </script>
 
@@ -140,7 +140,7 @@ function onTile(id: string) {
         :nickname="user.nickname"
         :energy="energy"
         :diamonds="diamonds"
-        @profile="router.push('/profile')"
+        @profile="pushFrom('/profile')"
         @shop="pushFrom({ path: '/shop', query: { tab: 'diamonds' } })"
         @shop-energy="pushFrom({ path: '/shop', query: { tab: 'energy' } })"
       />

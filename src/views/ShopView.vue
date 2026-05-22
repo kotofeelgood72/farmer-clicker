@@ -36,7 +36,7 @@ interface ShopItem {
 }
 
 const route = useRoute()
-const { back } = useAppNavigation()
+const { back, replaceKeepingBack } = useAppNavigation()
 const { energy, add: addEnergy } = useEnergy()
 const { diamonds, add: addDiamonds } = useDiamonds()
 const { isPremium, purchasing, purchasePremium } = usePremium()
@@ -61,7 +61,7 @@ const activeTab = ref<TabKey>(parseShopTab(route.query.tab) ?? 'diamonds')
 
 function selectTab(tab: TabKey) {
   activeTab.value = tab
-  void router.replace({ path: '/shop', query: { tab } })
+  void replaceKeepingBack({ path: '/shop', query: { tab } })
 }
 
 function syncTabFromRoute() {

@@ -9,6 +9,19 @@ export type NavigationBackState = {
   back?: string
 }
 
+/** Состояние текущей записи history (memory history не пишет в window.history.state). */
+function currentHistoryState(router: Router): NavigationBackState | null {
+  const fromRouter = router.options.history.state
+  if (fromRouter && typeof fromRouter === 'object' && 'back' in fromRouter) {
+    return fromRouter as NavigationBackState
+  }
+  const fromWindow = history.state
+  if (fromWindow && typeof fromWindow === 'object' && 'back' in fromWindow) {
+    return fromWindow as NavigationBackState
+  }
+  return null
+}
+
 function backPath(from?: RouteLocationNormalizedLoaded): string | undefined {
   const path = from?.fullPath
   if (!path || path === '/') return undefined
@@ -38,17 +51,40 @@ export function pushFrom(
   })
 }
 
+/** replace без потери `back` (например, переключение вкладок в магазине). */
+export function replacePreservingBack(
+  router: Router,
+  to: RouteLocationRaw,
+) {
+  const prev = currentHistoryState(router)
+  const back = prev?.back
+
+  if (typeof to === 'string') {
+    return router.replace({ path: to, state: back ? { back } : {} })
+  }
+
+  const prevState =
+    typeof to === 'object' && to.state && typeof to.state === 'object'
+      ? (to.state as Record<string, unknown>)
+      : {}
+
+  return router.replace({
+    ...to,
+    state: back ? { ...prevState, back } : prevState,
+  })
+}
+
 /** Возврат на экран-источник или на fallback, если истории нет. */
 export function navigateBack(
   router: Router,
   route: RouteLocationNormalizedLoaded,
   fallback: string,
 ) {
-  const state = history.state as NavigationBackState | null
-  const target = state?.back
+  const target = currentHistoryState(router)?.back
 
   if (typeof target === 'string' && target && target !== route.fullPath) {
-    void router.push(target)
+    // pop, чтобы восстановить state предыдущего экрана (push заново его сбрасывает)
+    void router.back()
     return
   }
 

@@ -1,6 +1,6 @@
 import { useRoute, useRouter } from 'vue-router'
 import type { RouteLocationRaw } from 'vue-router'
-import { navigateBack, pushFrom } from '@/router/navigation'
+import { navigateBack, pushFrom, replacePreservingBack } from '@/router/navigation'
 
 export function useAppNavigation() {
   const router = useRouter()
@@ -14,10 +14,15 @@ export function useAppNavigation() {
     navigateBack(router, route, fallback)
   }
 
+  function replaceKeepingBack(to: RouteLocationRaw) {
+    return replacePreservingBack(router, to)
+  }
+
   return {
     router,
     route,
     pushFrom: pushFromCurrent,
+    replaceKeepingBack,
     back,
   }
 }
