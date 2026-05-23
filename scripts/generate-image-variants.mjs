@@ -100,7 +100,7 @@ async function processGirls() {
     const galleryDir = path.join(dir, 'gallery')
     try {
       const files = await fs.readdir(galleryDir)
-      for (const name of files.filter((f) => f.endsWith('.png'))) {
+      for (const name of files.filter((f) => f.endsWith('.jpg'))) {
         all.push(...(await processFile(path.join(galleryDir, name), ['gallery'])))
       }
     } catch {

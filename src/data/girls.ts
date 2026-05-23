@@ -1,7 +1,7 @@
 export interface GalleryPhoto {
   /** Уменьшенный кадр под сетку (без даунскейла в браузере) */
   thumb: string
-  /** Исходный PNG для полноэкранного просмотра */
+  /** Исходный JPG для полноэкранного просмотра */
   full: string
 }
 
@@ -73,27 +73,35 @@ const bgById = Object.fromEntries(
     .filter((entry): entry is [number, string] => entry !== null),
 ) as Record<number, string>
 
-const galleryModules = import.meta.glob<string>('@/assets/girls/*/gallery/*.png', {
-  eager: true,
-  import: 'default',
-})
-
-const galleryById = Object.entries(galleryModules).reduce<Record<number, { index: number; url: string }[]>>(
-  (acc, [path, url]) => {
-    const match = path.match(/girls\/(\d+)\/gallery\/(\d+)\.png$/)
-    if (!match) return acc
-    const id = Number(match[1])
-    const index = Number(match[2])
-    if (!acc[id]) acc[id] = []
-    acc[id].push({ index, url })
-    return acc
-  },
-  {},
-)
-
-for (const id of Object.keys(galleryById)) {
-  galleryById[Number(id)]!.sort((a, b) => a.index - b.index)
+function buildGalleryById(
+  modules: Record<string, string>,
+  pattern: RegExp,
+): Record<number, { index: number; url: string }[]> {
+  const byId = Object.entries(modules).reduce<Record<number, { index: number; url: string }[]>>(
+    (acc, [path, url]) => {
+      const match = path.match(pattern)
+      if (!match) return acc
+      const id = Number(match[1])
+      const index = Number(match[2])
+      if (!acc[id]) acc[id] = []
+      acc[id].push({ index, url })
+      return acc
+    },
+    {},
+  )
+  for (const id of Object.keys(byId)) {
+    byId[Number(id)]!.sort((a, b) => a.index - b.index)
+  }
+  return byId
 }
+
+const galleryById = buildGalleryById(
+  import.meta.glob<string>('@/assets/girls/*/gallery/*.jpg', {
+    eager: true,
+    import: 'default',
+  }),
+  /girls\/(\d+)\/gallery\/(\d+)\.jpg$/i,
+)
 
 const cardBgModules = import.meta.glob<string>('@/assets/girls/*/bg.card.webp', {
   eager: true,
@@ -372,7 +380,7 @@ export function getGirlPortraitImage(girl: GirlProfile): string | undefined {
   return portraitPreviewById[girl.id] ?? girl.image
 }
 
-/** Фото для чата: `gallery/1.png` → index 1, `gallery/2.png` → index 2 */
+/** Фото для чата: `gallery/1.jpg` → index 1, `gallery/2.jpg` → index 2 */
 export function getGirlGalleryPhotoByIndex(
   girl: GirlProfile | undefined,
   index: number,
