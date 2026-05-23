@@ -123,7 +123,7 @@ async function processMeetings() {
   for (const ent of dirs) {
     if (!ent.isDirectory()) continue
     const id = ent.name
-    const file = path.join(meetingDir, id, `${id}.png`)
+    const file = path.join(meetingDir, id, `${id}.jpg`)
     try {
       await fs.access(file)
       all.push(...(await processFile(file, ['card'])))

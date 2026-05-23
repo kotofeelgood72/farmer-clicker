@@ -4,7 +4,7 @@ import { isMeetingCompleted, isMeetingStarted } from '@/composables/useMeetingCh
 import { hasMeetingDialog } from '@/data/meetings'
 
 /**
- * Локации свиданий. id = имя файла-картинки в `src/assets/meeting/<id>/<id>.png`
+ * Локации свиданий. id = имя файла-картинки в `src/assets/meeting/<id>/<id>.jpg`
  * и id папки `src/assets/meeting/<id>/dialog.md`.
  *
  * Чтобы добавить новую локацию — положи её файлы по этому пути и допиши
@@ -19,7 +19,7 @@ const LOCATIONS: { id: number; title: string }[] = [
   { id: 6, title: 'Ресторан' },
 ]
 
-const meetingModules = import.meta.glob<string>('@/assets/meeting/*/*.png', {
+const meetingModules = import.meta.glob<string>('@/assets/meeting/*/*.jpg', {
   eager: true,
   import: 'default',
 })
@@ -32,8 +32,8 @@ const meetingCardModules = import.meta.glob<string>('@/assets/meeting/*/*.card.w
 const meetingImagesById = Object.fromEntries(
   Object.entries(meetingModules)
     .map(([path, url]) => {
-      // Берём только meeting/<id>/<id>.png, чтобы случайные bg/иконки не перетёрли основное фото локации.
-      const m = path.match(/meeting\/(\d+)\/(\d+)\.png$/)
+      // Берём только meeting/<id>/<id>.jpg, чтобы случайные bg/иконки не перетёрли основное фото локации.
+      const m = path.match(/meeting\/(\d+)\/(\d+)\.jpg$/i)
       if (!m || m[1] !== m[2]) return null
       return [Number(m[1]), url] as const
     })
