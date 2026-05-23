@@ -59,24 +59,26 @@ watch(
 
 <template>
   <div class="stage" :style="{ backgroundImage: `url(${stageBgUrl})` }">
-    <div class="phone">
-      <div class="phone-frame">
-        <div class="phone-screen">
-          <div class="dynamic-island" />
-          <Transition name="boot-fade">
-            <div v-if="isBootLoading" class="app-boot" aria-busy="true" aria-live="polite">
-              <IosActivityIndicator />
+    <div class="phone-scaler">
+      <div class="phone">
+        <div class="phone-frame">
+          <div class="phone-screen">
+            <div class="dynamic-island" />
+            <Transition name="boot-fade">
+              <div v-if="isBootLoading" class="app-boot" aria-busy="true" aria-live="polite">
+                <IosActivityIndicator />
+              </div>
+            </Transition>
+            <div class="route-view" :class="{ 'route-view--booting': isBootLoading }">
+              <RouterView v-slot="{ Component }">
+                <Transition :name="transitionName">
+                  <component :is="Component" :key="routeComponentKey(route)" class="route-page" />
+                </Transition>
+              </RouterView>
             </div>
-          </Transition>
-          <div class="route-view" :class="{ 'route-view--booting': isBootLoading }">
-            <RouterView v-slot="{ Component }">
-              <Transition :name="transitionName">
-                <component :is="Component" :key="routeComponentKey(route)" class="route-page" />
-              </Transition>
-            </RouterView>
+            <IosNotificationBanner />
+            <DailyRewardsModal />
           </div>
-          <IosNotificationBanner />
-          <DailyRewardsModal />
         </div>
       </div>
     </div>
@@ -111,16 +113,41 @@ body {
 .stage {
   width: 100%;
   height: 100%;
+  min-height: 0;
+  container-type: size;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow: hidden;
   background-color: #0a0a0a;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
 }
 
-/* iPhone 17 Pro frame — 393x852 logical screen */
+/* iPhone 17 Pro — 393×852; scale = unitless min(1, по высоте/ширине контейнера) */
+.phone-scaler {
+  --phone-w: 417px;
+  --phone-h: 876px;
+  --scale: min(
+    1,
+    calc(100cqh / var(--phone-h)),
+    calc(100cqw / var(--phone-w)),
+    calc(100dvh / var(--phone-h)),
+    calc(100dvw / var(--phone-w))
+  );
+  width: calc(var(--phone-w) * var(--scale));
+  height: calc(var(--phone-h) * var(--scale));
+  flex-shrink: 1;
+  min-height: 0;
+  border-radius: calc(62px * var(--scale));
+  overflow: hidden;
+  background: #161618;
+  isolation: isolate;
+}
+
 .phone {
   --screen-w: 393px;
   --screen-h: 852px;
@@ -130,16 +157,22 @@ body {
 
   width: calc(var(--screen-w) + var(--bezel) * 2);
   height: calc(var(--screen-h) + var(--bezel) * 2);
+  transform: scale(var(--scale));
+  transform-origin: top left;
   position: relative;
-  flex-shrink: 0;
+  border-radius: var(--radius-outer);
+  overflow: hidden;
+  background: #161618;
 }
 
 .phone-frame {
   width: 100%;
   height: 100%;
-  border-radius: var(--radius-outer);
+  border-radius: inherit;
+  overflow: hidden;
   background: linear-gradient(145deg, #2a2a2c 0%, #161618 50%, #2a2a2c 100%);
   padding: var(--bezel);
+  box-sizing: border-box;
   box-shadow:
     0 0 0 1.5px #0a0a0a inset,
     0 0 0 3px #3a3a3c inset,
@@ -154,7 +187,7 @@ body {
   --phone-inner-radius: var(--radius-inner);
   border-radius: var(--radius-inner);
   overflow: hidden;
-  background: white;
+  background: var(--bg, #fff);
   isolation: isolate;
 }
 
@@ -232,19 +265,5 @@ body {
 
 .route-slide-back-leave-to {
   transform: translateX(100%);
-}
-
-/* Scale the phone down when viewport can't fit it */
-@media (max-height: 900px) {
-  .phone {
-    transform: scale(calc((100vh - 40px) / 876));
-    transform-origin: center center;
-  }
-}
-@media (max-width: 440px) {
-  .phone {
-    transform: scale(calc((100vw - 20px) / 417));
-    transform-origin: center center;
-  }
 }
 </style>
