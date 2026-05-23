@@ -1,5 +1,5 @@
 import { nextTick } from 'vue'
-import Shepherd, { type StepOptionsButton, type Tour } from 'shepherd.js'
+import Shepherd, { type StepOptions, type StepOptionsButton, type Tour } from 'shepherd.js'
 import { GAME_NAME } from '@/constants/game'
 
 const STORAGE_KEY = 'swipe-onboarding-v1'
@@ -125,7 +125,7 @@ const NAV_TOUR_STEPS = [
   },
 ] as const
 
-function buildNavTourSteps(): Tour['steps'] {
+function buildNavTourSteps(): StepOptions[] {
   return NAV_TOUR_STEPS.map((step, index) => {
     const isLast = index === NAV_TOUR_STEPS.length - 1
     const selector = `[data-tour="${step.target}"]`

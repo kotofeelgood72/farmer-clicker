@@ -1,4 +1,5 @@
 import type {
+  HistoryState,
   RouteLocationNormalizedLoaded,
   RouteLocationRaw,
   Router,
@@ -28,6 +29,16 @@ function backPath(from?: RouteLocationNormalizedLoaded): string | undefined {
   return path
 }
 
+function mergeHistoryState(prev: HistoryState | undefined, back?: string): HistoryState {
+  if (!back) return prev ?? {}
+  return { ...prev, back }
+}
+
+function routeStateFrom(to: RouteLocationRaw): HistoryState | undefined {
+  if (typeof to !== 'object' || !to.state || typeof to.state !== 'object') return undefined
+  return to.state as HistoryState
+}
+
 /** Переход «вглубь» с запоминанием экрана для кнопки «Назад». */
 export function pushFrom(
   router: Router,
@@ -40,14 +51,11 @@ export function pushFrom(
     return router.push({ path: to, state: back ? { back } : {} })
   }
 
-  const prevState =
-    typeof to === 'object' && to.state && typeof to.state === 'object'
-      ? (to.state as Record<string, unknown>)
-      : {}
+  const prevState = routeStateFrom(to)
 
   return router.push({
     ...to,
-    state: back ? { ...prevState, back } : prevState,
+    state: mergeHistoryState(prevState, back),
   })
 }
 
@@ -63,14 +71,11 @@ export function replacePreservingBack(
     return router.replace({ path: to, state: back ? { back } : {} })
   }
 
-  const prevState =
-    typeof to === 'object' && to.state && typeof to.state === 'object'
-      ? (to.state as Record<string, unknown>)
-      : {}
+  const prevState = routeStateFrom(to)
 
   return router.replace({
     ...to,
-    state: back ? { ...prevState, back } : prevState,
+    state: mergeHistoryState(prevState, back),
   })
 }
 
