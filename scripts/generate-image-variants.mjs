@@ -81,7 +81,7 @@ async function processGirls() {
     const id = ent.name
     const dir = path.join(girlsDir, id)
 
-    const bg = path.join(dir, 'bg.png')
+    const bg = path.join(dir, 'bg.jpg')
     try {
       await fs.access(bg)
       all.push(...(await processFile(bg, ['card', 'preview'])))
@@ -89,7 +89,7 @@ async function processGirls() {
       /* no bg */
     }
 
-    const portrait = path.join(dir, `${id}.png`)
+    const portrait = path.join(dir, `${id}.webp`)
     try {
       await fs.access(portrait)
       all.push(...(await processFile(portrait, ['avatar', 'preview'])))

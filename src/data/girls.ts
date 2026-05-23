@@ -12,7 +12,7 @@ export interface GirlProfile {
   bio: string
   tags: string[]
   image?: string
-  /** Полноразмерное фото из папки девушки: bg.png */
+  /** Полноразмерное фото из папки девушки: bg.jpg */
   bgImage?: string
   /** WebP ~280px для карточек «Продолжить общение» (bg.card.webp) */
   cardImage?: string
@@ -41,7 +41,7 @@ function mapGirlAssets(
   )
 }
 
-const imageModules = import.meta.glob<string>('@/assets/girls/*/*.png', {
+const imageModules = import.meta.glob<string>('@/assets/girls/*/*.webp', {
   eager: true,
   import: 'default',
 })
@@ -49,16 +49,16 @@ const imageModules = import.meta.glob<string>('@/assets/girls/*/*.png', {
 const imagesById = Object.fromEntries(
   Object.entries(imageModules)
     .map(([path, url]) => {
-      // Берём только файл, чьё имя совпадает с id папки: girls/<id>/<id>.png.
-      // Файлы вида bg.png и прочие нумерованным id-ом изображением не считаются.
-      const match = path.match(/girls\/(\d+)\/(\d+)\.png$/)
+      // Берём только файл, чьё имя совпадает с id папки: girls/<id>/<id>.webp.
+      // Файлы вида bg.card.webp, {id}.avatar.webp и пр. не считаются.
+      const match = path.match(/girls\/(\d+)\/(\d+)\.webp$/i)
       if (!match || match[1] !== match[2]) return null
       return [Number(match[1]), url] as const
     })
     .filter((entry): entry is [number, string] => entry !== null),
 ) as Record<number, string>
 
-const bgModules = import.meta.glob<string>('@/assets/girls/*/bg.png', {
+const bgModules = import.meta.glob<string>('@/assets/girls/*/bg.jpg', {
   eager: true,
   import: 'default',
 })
@@ -66,7 +66,7 @@ const bgModules = import.meta.glob<string>('@/assets/girls/*/bg.png', {
 const bgById = Object.fromEntries(
   Object.entries(bgModules)
     .map(([path, url]) => {
-      const match = path.match(/girls\/(\d+)\/bg\.png$/)
+      const match = path.match(/girls\/(\d+)\/bg\.jpg$/i)
       if (!match) return null
       return [Number(match[1]), url] as const
     })
@@ -365,7 +365,7 @@ export function getGirlById(id: number): GirlProfile | undefined {
   return GIRLS.find((g) => g.id === id)
 }
 
-/** Карточка на главной — уменьшенный WebP, иначе тяжёлый bg.png */
+/** Карточка на главной — уменьшенный WebP, иначе тяжёлый bg.jpg */
 export function getGirlCardImage(girl: GirlProfile): string | undefined {
   return girl.cardImage ?? girl.bgImage ?? girl.image
 }
@@ -375,7 +375,7 @@ export function getGirlAvatarImage(girl: GirlProfile): string | undefined {
   return girl.avatarImage ?? girl.image ?? girl.cardImage
 }
 
-/** Портрет girls/<id>/<id>.png — для свиданий (не bg.png) */
+/** Портрет girls/<id>/<id>.webp — для свиданий (не bg.jpg) */
 export function getGirlPortraitImage(girl: GirlProfile): string | undefined {
   return portraitPreviewById[girl.id] ?? girl.image
 }

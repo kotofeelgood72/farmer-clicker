@@ -7,7 +7,7 @@ import { IMAGE_ASPECT } from '@/constants/imageSlots'
 import BottomNav from '@/components/BottomNav.vue'
 import EnterItem from '@/components/EnterItem.vue'
 
-import IconLock from '~icons/solar/lock-bold'
+import IconEyeClosed from '~icons/solar/eye-closed-bold'
 import {
   generateDailyDates,
   msUntilNextRotation,
@@ -16,6 +16,7 @@ import {
 import { useAppNavigation } from '@/composables/useAppNavigation'
 import { runAfterInterstitial } from '@/composables/useAdPlacements'
 import { useChatHistory } from '@/composables/useChatHistory'
+import { devUnlockAllDates, toggleDevUnlockAllDates } from '@/composables/useDevDates'
 
 const { unreadTotal } = useChatHistory()
 
@@ -67,6 +68,15 @@ function onFindGirl() {
   void router.push('/swipe')
 }
 
+function refreshDates() {
+  dailyDates.value = generateDailyDates()
+}
+
+function onToggleDevUnlock() {
+  toggleDevUnlockAllDates()
+  refreshDates()
+}
+
 function onOpen(item: DailyDate) {
   if (item.status === 'locked') return
   runAfterInterstitial(() => void pushFrom(`/date/${item.id}`), 'date_start')
@@ -101,6 +111,17 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
           @click="tab = 'past'"
         >
           Прошедшие
+        </button>
+      </EnterItem>
+
+      <EnterItem :order="1" class="dev-dates">
+        <button
+          type="button"
+          class="dev-dates__btn"
+          :class="{ 'dev-dates__btn--on': devUnlockAllDates }"
+          @click="onToggleDevUnlock"
+        >
+          {{ devUnlockAllDates ? 'Тест: все свидания открыты' : 'Тест: открыть все свидания' }}
         </button>
       </EnterItem>
 
@@ -141,13 +162,19 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
             <span v-else class="thumb-letter">{{ d.girlName.charAt(0) }}</span>
 
             <span v-if="d.status === 'new'" class="badge-new">НОВОЕ</span>
-            <span v-else-if="d.status === 'locked'" class="badge-lock">
-              <IconLock class="lock-icon" />
+            <span v-else-if="d.status === 'locked'" class="badge-lock" aria-hidden="true">
+              <IconEyeClosed class="badge-lock__icon" />
             </span>
-          </div>
-          <div class="body">
-            <div class="title">{{ d.title }}</div>
-            <div class="character">{{ d.girlName }}</div>
+
+            <div class="body" :class="{ 'body--locked': d.status === 'locked' }">
+              <template v-if="d.status === 'locked'">
+                <p class="locked-hint">Вы ещё не знакомы с ней</p>
+              </template>
+              <template v-else>
+                <div class="title">{{ d.title }}</div>
+                <div class="character">{{ d.girlName }}</div>
+              </template>
+            </div>
           </div>
         </button>
         </EnterItem>
@@ -253,6 +280,28 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 }
 
 /* Tabs */
+.dev-dates {
+  margin-bottom: 10px;
+}
+
+.dev-dates__btn {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px dashed #e67e22;
+  background: rgba(230, 126, 34, 0.08);
+  color: #c56a14;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dev-dates__btn--on {
+  border-style: solid;
+  background: rgba(230, 126, 34, 0.18);
+  color: #a8580f;
+}
+
 .tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -281,7 +330,7 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   box-shadow: 0 4px 14px rgba(177, 75, 255, 0.25);
 }
 
-/* List — 2-column grid, vertical cards (image on top, content below) */
+/* List — 2-column grid, текст поверх изображения снизу */
 .list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -316,7 +365,6 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 
 .card.locked {
   cursor: not-allowed;
-  opacity: 0.7;
 }
 
 .thumb {
@@ -340,6 +388,14 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
 }
 
+.card.locked .thumb :deep(.thumb-bg) {
+  filter: blur(5px) brightness(0.55);
+}
+
+.card.locked .thumb :deep(.thumb-girl) {
+  filter: blur(4px) brightness(0.75) drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
+}
+
 .thumb-letter {
   position: relative;
   z-index: 1;
@@ -350,29 +406,43 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 }
 
 .body {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
   min-width: 0;
-  padding: 12px 16px 14px;
+  padding: 28px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.72) 0%,
+    rgba(0, 0, 0, 0.38) 55%,
+    transparent 100%
+  );
+  pointer-events: none;
 }
 
 .title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
-  color: var(--text);
+  color: #fff;
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 .character {
   font-size: 12px;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.88);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .badge-new {
@@ -394,9 +464,9 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   position: absolute;
   top: 8px;
   right: 8px;
-  z-index: 2;
-  width: 26px;
-  height: 26px;
+  z-index: 3;
+  width: 28px;
+  height: 28px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(4px);
@@ -405,10 +475,27 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   justify-content: center;
 }
 
-.lock-icon {
-  width: 14px;
-  height: 14px;
+.badge-lock__icon {
+  width: 16px;
+  height: 16px;
   color: #fff;
+}
+
+.body--locked {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  text-align: center;
+  padding-bottom: 14px;
+}
+
+.locked-hint {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
 }
 
 .empty {

@@ -1,4 +1,5 @@
 import { GIRLS, getGirlPortraitImage, type GirlProfile } from '@/data/girls'
+import { devUnlockAllDates } from '@/composables/useDevDates'
 import { isGirlChatCompleted } from '@/composables/useGirlChat'
 import { isMeetingCompleted, isMeetingStarted } from '@/composables/useMeetingChat'
 import { hasMeetingDialog } from '@/data/meetings'
@@ -112,8 +113,12 @@ export function msUntilNextRotation(now: Date = new Date()): number {
   return Math.max(1000, next.getTime() - now.getTime())
 }
 
+function isDateUnlockedForGirl(girlId: number): boolean {
+  return isGirlChatCompleted(girlId) || devUnlockAllDates.value
+}
+
 function resolveStatus(girl: GirlProfile, locationId: number): DateStatus {
-  if (!isGirlChatCompleted(girl.id)) return 'locked'
+  if (!isDateUnlockedForGirl(girl.id)) return 'locked'
   if (!hasMeetingDialog(locationId)) return 'locked'
   if (isMeetingCompleted(locationId, girl.id)) return 'past'
   return isMeetingStarted(locationId, girl.id) ? 'available' : 'new'
@@ -145,11 +150,11 @@ export function generateDailyDates(date: Date = new Date()): DailyDate[] {
   // ниже — все остальные locked-превью. Внутри каждой группы порядок
   // шаффлится seed-ом дня, так что состав/порядок стабилен в течение суток.
   const completedShuffled = shuffle(
-    GIRLS.filter((g) => isGirlChatCompleted(g.id)),
+    GIRLS.filter((g) => isDateUnlockedForGirl(g.id)),
     rng,
   )
   const uncompletedShuffled = shuffle(
-    GIRLS.filter((g) => !isGirlChatCompleted(g.id)),
+    GIRLS.filter((g) => !isDateUnlockedForGirl(g.id)),
     rng,
   )
   const locations = shuffle(LOCATIONS, rng)
