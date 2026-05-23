@@ -16,8 +16,6 @@ import {
 import { useAppNavigation } from '@/composables/useAppNavigation'
 import { runAfterInterstitial } from '@/composables/useAdPlacements'
 import { useChatHistory } from '@/composables/useChatHistory'
-import { devUnlockAllDates, toggleDevUnlockAllDates } from '@/composables/useDevDates'
-
 const { unreadTotal } = useChatHistory()
 
 type Tab = 'available' | 'past'
@@ -68,15 +66,6 @@ function onFindGirl() {
   void router.push('/swipe')
 }
 
-function refreshDates() {
-  dailyDates.value = generateDailyDates()
-}
-
-function onToggleDevUnlock() {
-  toggleDevUnlockAllDates()
-  refreshDates()
-}
-
 function onOpen(item: DailyDate) {
   if (item.status === 'locked') return
   runAfterInterstitial(() => void pushFrom(`/date/${item.id}`), 'date_start')
@@ -111,17 +100,6 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
           @click="tab = 'past'"
         >
           Прошедшие
-        </button>
-      </EnterItem>
-
-      <EnterItem :order="1" class="dev-dates">
-        <button
-          type="button"
-          class="dev-dates__btn"
-          :class="{ 'dev-dates__btn--on': devUnlockAllDates }"
-          @click="onToggleDevUnlock"
-        >
-          {{ devUnlockAllDates ? 'Тест: все свидания открыты' : 'Тест: открыть все свидания' }}
         </button>
       </EnterItem>
 
@@ -280,28 +258,6 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 }
 
 /* Tabs */
-.dev-dates {
-  margin-bottom: 10px;
-}
-
-.dev-dates__btn {
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px dashed #e67e22;
-  background: rgba(230, 126, 34, 0.08);
-  color: #c56a14;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.dev-dates__btn--on {
-  border-style: solid;
-  background: rgba(230, 126, 34, 0.18);
-  color: #a8580f;
-}
-
 .tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
