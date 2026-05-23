@@ -10,7 +10,7 @@ import { useDailyRewards } from '@/composables/useDailyRewards'
 import { usePremium } from '@/composables/usePremium'
 import { useNotificationWatcher } from '@/composables/useNotificationWatcher'
 import { routeComponentKey, useRouteTransition } from '@/composables/useRouteTransition'
-import stageBgUrl from '@/assets/ui/background.png'
+import stageBgUrl from '@/assets/ui/background.jpg'
 
 const route = useRoute()
 const router = useRouter()

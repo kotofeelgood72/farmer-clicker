@@ -25,7 +25,7 @@ import IconCheckRead from '~icons/solar/check-read-outline'
 import iconStone from '@/assets/ui/stone.png'
 import QuickReply from '@/components/QuickReply.vue'
 import ChatTypingIndicator from '@/components/ChatTypingIndicator.vue'
-import chatBgUrl from '@/assets/ui/chat-bg.png'
+import chatBgUrl from '@/assets/ui/chat-bg.jpg'
 import EnterItem from '@/components/EnterItem.vue'
 
 type Sender = 'them' | 'me'
