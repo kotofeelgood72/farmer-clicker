@@ -8,6 +8,7 @@ import iconStone from '@/assets/ui/stone.png'
 import iconStones from '@/assets/ui/cluster.png'
 import iconEnergy from '@/assets/ui/energy.png'
 import iconMedalion from '@/assets/ui/medalion.png'
+import iconYanCoin from '@/assets/ui/yan-coin.png'
 import { REWARDED_DIAMONDS_AMOUNT, REWARDED_ENERGY_AMOUNT } from '@/constants/game'
 import { useAchievements } from '@/composables/useAchievements'
 import { useDiamonds } from '@/composables/useDiamonds'
@@ -77,20 +78,27 @@ onMounted(() => {
 })
 watch(() => route.query.tab, syncTabFromRoute)
 
-const premiumPriceLabel = computed(() => {
-  if (premiumCatalog.value?.price) return premiumCatalog.value.price
+function formatIapPrice(value: number | string): string {
+  const n = typeof value === 'string' ? Number(value) : value
+  if (!Number.isFinite(n)) return String(value)
+  return n.toLocaleString('ru-RU')
+}
+
+const premiumPriceValue = computed(() => {
+  if (premiumCatalog.value?.priceValue) return premiumCatalog.value.priceValue
   const item = allItems.find((i) => i.unit === 'premium-lifetime')
-  return item ? `${item.price} ₽` : ''
+  return item ? String(item.price) : ''
 })
 
+/** 500 алмазов = 100 ян (0,2 ян/алмаз); на крупных пакетах — скидка от базовой цены. */
 const allItems: ShopItem[] = [
   // Алмазы
-  { id: 11, amount: 100, price: 75, icon: iconStone, tab: 'diamonds', unit: 'diamonds' },
-  { id: 12, amount: 250, price: 149, icon: iconStone, tab: 'diamonds', unit: 'diamonds' },
-  { id: 13, amount: 550, price: 299, icon: iconStones, discount: 10, tab: 'diamonds', unit: 'diamonds' },
-  { id: 14, amount: 2750, price: 1190, icon: iconStones, discount: 30, tab: 'diamonds', unit: 'diamonds' },
-  { id: 15, amount: 6000, price: 2290, icon: iconStones, discount: 30, tab: 'diamonds', unit: 'diamonds' },
-  { id: 16, amount: 12000, price: 4290, icon: iconStones, discount: 40, tab: 'diamonds', unit: 'diamonds' },
+  { id: 11, amount: 500, price: 100, icon: iconStone, tab: 'diamonds', unit: 'diamonds' },
+  { id: 12, amount: 250, price: 50, icon: iconStone, tab: 'diamonds', unit: 'diamonds' },
+  { id: 13, amount: 550, price: 99, icon: iconStones, discount: 10, tab: 'diamonds', unit: 'diamonds' },
+  { id: 14, amount: 2750, price: 385, icon: iconStones, discount: 30, tab: 'diamonds', unit: 'diamonds' },
+  { id: 15, amount: 6000, price: 840, icon: iconStones, discount: 30, tab: 'diamonds', unit: 'diamonds' },
+  { id: 16, amount: 12000, price: 1440, icon: iconStones, discount: 40, tab: 'diamonds', unit: 'diamonds' },
 
   // Энергия
   { id: 21, amount: 30, price: 49, icon: iconEnergy, tab: 'energy', unit: 'energy' },
@@ -101,7 +109,7 @@ const allItems: ShopItem[] = [
   {
     id: 31,
     amount: 1,
-    price: 299,
+    price: 100,
     icon: iconMedalion,
     tab: 'premium',
     unit: 'premium-lifetime',
@@ -211,9 +219,10 @@ function onBuyMore() {
           </h3>
           <div class="premium-card__price">
             <span v-if="isPremium" class="premium-card__owned">Куплено</span>
-            <template v-else>
-              <span class="premium-card__price-value">{{ premiumPriceLabel }}</span>
-            </template>
+            <span v-else class="iap-price iap-price--on-dark">
+              <span class="premium-card__price-value">{{ formatIapPrice(premiumPriceValue) }}</span>
+              <img :src="iconYanCoin" alt="" class="iap-price__coin" />
+            </span>
           </div>
         </button>
         </EnterItem>
@@ -306,15 +315,18 @@ function onBuyMore() {
             <img :src="item.icon" :alt="`${item.amount}`" />
           </div>
           <div class="card-amount">{{ formatAmount(item) }}</div>
-          <div class="card-price">{{ item.price }} ₽</div>
+          <div class="card-price iap-price">
+            <span class="iap-price__value">{{ formatIapPrice(item.price) }}</span>
+            <img :src="iconYanCoin" alt="" class="iap-price__coin" />
+          </div>
         </button>
         </div>
       </div>
     </div>
 
     <EnterItem v-if="!isPremium" :order="4" solo class="cta">
-      <AppButton variant="violet" :disabled="purchasing" @click="onBuyMore">
-        {{ purchasing ? 'Оформление…' : 'Получить премиум' }}
+      <AppButton variant="danger" :disabled="purchasing" @click="onBuyMore">
+        {{ purchasing ? 'Оформление…' : 'Купить' }}
       </AppButton>
     </EnterItem>
   </div>
@@ -574,11 +586,27 @@ function onBuyMore() {
   letter-spacing: -0.03em;
 }
 
-.premium-card__price-currency {
-  font-size: 20px;
-  font-weight: 700;
+.iap-price {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.iap-price__value {
   line-height: 1;
-  opacity: 0.95;
+}
+
+.iap-price__coin {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.iap-price--on-dark .iap-price__coin {
+  width: 22px;
+  height: 22px;
 }
 
 .premium-benefits {
@@ -1047,9 +1075,20 @@ function onBuyMore() {
 }
 
 .card-price {
-  font-size: 12px;
-  color: var(--text-muted);
-  font-weight: 500;
+  margin-top: 2px;
+  gap: 5px;
+}
+
+.card-price .iap-price__value {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--danger);
+  letter-spacing: -0.02em;
+}
+
+.card-price .iap-price__coin {
+  width: 22px;
+  height: 22px;
 }
 
 /* CTA */
