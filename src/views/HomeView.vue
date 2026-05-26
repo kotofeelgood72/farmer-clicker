@@ -398,10 +398,7 @@ watch(chestReward, (v, prev) => {
           </div>
           <div
             class="cur diamonds clickable"
-            @click.stop="
-              ui()
-              showShop = true
-            "
+            @click.stop="ui(); showShop = true"
           >
             <img :src="iconStone" alt="" class="gem-img" draggable="false" />
             <div class="cur-value">{{ game.diamonds }}</div>
@@ -436,10 +433,7 @@ watch(chestReward, (v, prev) => {
           <button
             class="side-btn"
             title="Настройки"
-            @click.stop="
-              ui()
-              showSettings = true
-            "
+            @click.stop="ui(); showSettings = true"
           >
             <span class="side-icon"><img :src="navSettings" alt="" draggable="false" /></span>
             <span class="side-label">Настройки</span>
@@ -447,10 +441,7 @@ watch(chestReward, (v, prev) => {
           <button
             class="side-btn"
             title="Магазин"
-            @click.stop="
-              ui()
-              showShop = true
-            "
+            @click.stop="ui(); showShop = true"
           >
             <span class="side-icon"><img :src="navShop" alt="" draggable="false" /></span>
             <span class="side-label">Магазин</span>
@@ -458,10 +449,7 @@ watch(chestReward, (v, prev) => {
           <button
             class="side-btn"
             title="События"
-            @click.stop="
-              ui()
-              showAchievements = true
-            "
+            @click.stop="ui(); showAchievements = true"
           >
             <span class="side-icon">
               <img :src="navEvents" alt="" draggable="false" />
@@ -472,10 +460,7 @@ watch(chestReward, (v, prev) => {
           <button
             class="side-btn"
             title="Сундуки"
-            @click.stop="
-              ui()
-              showChests = true
-            "
+            @click.stop="ui(); showChests = true"
           >
             <span class="side-icon">
               <img :src="navChests" alt="" draggable="false" />
@@ -584,30 +569,21 @@ watch(chestReward, (v, prev) => {
         <nav class="bottom-nav">
           <button
             :class="{ active: showUpgrades }"
-            @click.stop="
-              ui()
-              showUpgrades = true
-            "
+            @click.stop="ui(); showUpgrades = true"
           >
             <img :src="iconLevelUp" alt="" class="nav-icon" draggable="false" />
             <span class="nav-label">Улучшения</span>
           </button>
           <button
             :class="{ active: showItems }"
-            @click.stop="
-              ui()
-              showItems = true
-            "
+            @click.stop="ui(); showItems = true"
           >
             <img :src="iconSword" alt="" class="nav-icon" draggable="false" />
             <span class="nav-label">Предметы</span>
           </button>
           <button
             :class="{ active: showOrders }"
-            @click.stop="
-              ui()
-              showOrders = true
-            "
+            @click.stop="ui(); showOrders = true"
           >
             <span class="nav-icon-wrap">
               <img :src="iconScroll" alt="" class="nav-icon" draggable="false" />
@@ -617,10 +593,7 @@ watch(chestReward, (v, prev) => {
           </button>
           <button
             :class="{ active: onForge }"
-            @click.stop="
-              ui()
-              openForge()
-            "
+            @click.stop="ui(); openForge()"
           >
             <img :src="iconBlacksmith" alt="" class="nav-icon" draggable="false" />
             <span class="nav-label">Кузница</span>
