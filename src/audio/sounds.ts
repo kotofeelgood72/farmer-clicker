@@ -2,7 +2,6 @@ import bgmUrl from '@/assets/audio/Blacksmith Village Theme.mp3'
 import hammerUrl from '@/assets/audio/hammer_click.mp3'
 import criticalUrl from '@/assets/audio/critical.mp3'
 import openUrl from '@/assets/audio/open.mp3'
-import orderUrl from '@/assets/audio/order.mp3'
 import uiClickUrl from '@/assets/audio/ui_click.mp3'
 
 // Yandex Games audio requirements:
@@ -16,13 +15,12 @@ import uiClickUrl from '@/assets/audio/ui_click.mp3'
 // (SFX + BGM) through Web Audio API — no <audio> elements created at all —
 // and additionally clear navigator.mediaSession.
 
-export type SfxName = 'hammer' | 'critical' | 'open' | 'order' | 'ui'
+export type SfxName = 'hammer' | 'critical' | 'open' | 'ui'
 
 const SFX_URLS: Record<SfxName, string> = {
   hammer: hammerUrl,
   critical: criticalUrl,
   open: openUrl,
-  order: orderUrl,
   ui: uiClickUrl,
 }
 
@@ -30,7 +28,6 @@ const SFX_VOLUMES: Record<SfxName, number> = {
   hammer: 0.55,
   critical: 0.75,
   open: 0.8,
-  order: 0.7,
   ui: 0.45,
 }
 
@@ -39,7 +36,6 @@ const MIN_INTERVAL: Record<SfxName, number> = {
   hammer: 0,
   critical: 0,
   open: 0,
-  order: 1200,
   ui: 60,
 }
 
@@ -47,7 +43,6 @@ const lastPlayedAt: Record<SfxName, number> = {
   hammer: 0,
   critical: 0,
   open: 0,
-  order: 0,
   ui: 0,
 }
 

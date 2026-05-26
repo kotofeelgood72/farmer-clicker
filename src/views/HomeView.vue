@@ -148,19 +148,14 @@ onBeforeUnmount(() => {
   clearInterval(nowTimer)
   window.removeEventListener('ads:pause', onAdsPause)
   window.removeEventListener('ads:resume', onAdsResume)
+  clearTimeout(orderNoticeTimer)
   stopMusic()
   game.save()
 })
 
-const goldX2Left = computed(() =>
-  Math.max(0, Math.floor((game.goldX2Until - nowTs.value) / 1000)),
-)
-const autoLeft = computed(() =>
-  Math.max(0, Math.floor((game.autoClickUntil - nowTs.value) / 1000)),
-)
-const critX2Left = computed(() =>
-  Math.max(0, Math.floor((game.critX2Until - nowTs.value) / 1000)),
-)
+const goldX2Left = computed(() => Math.max(0, Math.floor((game.goldX2Until - nowTs.value) / 1000)))
+const autoLeft = computed(() => Math.max(0, Math.floor((game.autoClickUntil - nowTs.value) / 1000)))
+const critX2Left = computed(() => Math.max(0, Math.floor((game.critX2Until - nowTs.value) / 1000)))
 
 function fmtBoosterTime(s: number): string {
   if (s >= 60) {
@@ -183,16 +178,56 @@ interface ActiveBooster {
 const activeBoosters = computed<ActiveBooster[]>(() => {
   const list: ActiveBooster[] = []
   if (goldX2Left.value > 0)
-    list.push({ id: 'gold',  label: 'x2 Золото',   left: goldX2Left.value, icon: iconCoin,   iconAlt: 'gold',   emoji: '🪙', variant: 'gold'  })
+    list.push({
+      id: 'gold',
+      label: 'x2 Золото',
+      left: goldX2Left.value,
+      icon: iconCoin,
+      iconAlt: 'gold',
+      emoji: '🪙',
+      variant: 'gold',
+    })
   if (autoLeft.value > 0)
-    list.push({ id: 'speed', label: 'x2 Скорость', left: autoLeft.value,   icon: iconCoin,   iconAlt: 'speed',  emoji: '⚡', variant: 'speed' })
+    list.push({
+      id: 'speed',
+      label: 'x2 Скорость',
+      left: autoLeft.value,
+      icon: iconCoin,
+      iconAlt: 'speed',
+      emoji: '⚡',
+      variant: 'speed',
+    })
   if (critX2Left.value > 0)
-    list.push({ id: 'luck',  label: 'x2 Удача',    left: critX2Left.value, icon: iconClover, iconAlt: 'luck',   emoji: '🍀', variant: 'luck'  })
+    list.push({
+      id: 'luck',
+      label: 'x2 Удача',
+      left: critX2Left.value,
+      icon: iconClover,
+      iconAlt: 'luck',
+      emoji: '🍀',
+      variant: 'luck',
+    })
   return list
 })
 
 const hasUnopenedChests = computed(() => game.chests.some((c) => c.count > 0))
 const hasOrders = computed(() => game.orders.length > 0)
+
+let orderNoticeTimer = 0
+watch(
+  () => game.orderNotice?.id,
+  (id) => {
+    clearTimeout(orderNoticeTimer)
+    if (!id) return
+    orderNoticeTimer = window.setTimeout(() => game.clearOrderNotice(), 4500)
+  },
+)
+
+function openOrdersFromNotice() {
+  ui()
+  showOrders.value = true
+  game.clearOrderNotice()
+}
 
 // Background of the main game viewport — switches with the forge level milestone.
 const forgeBackground = computed(() => {
@@ -336,6 +371,10 @@ watch(anyOverlayOpen, (open) => {
   else gameplayResume()
 })
 
+watch(showOrders, (open) => {
+  if (open) game.clearOrderNotice()
+})
+
 // Trigger review on a positive moment: after a chest reward popup is closed.
 watch(chestReward, (v, prev) => {
   if (prev && !v) tryRequestReview()
@@ -346,158 +385,247 @@ watch(chestReward, (v, prev) => {
   <div class="game">
     <div class="screen">
       <div class="viewport" :style="{ backgroundImage: `url(${forgeBackground})` }">
-      <!-- Top bar: currencies + burger -->
-      <div class="topbar">
-        <div class="cur gold">
-          <img :src="iconCoin" alt="" class="coin-img" draggable="false" />
-          <div class="cur-info">
-            <div class="cur-value">{{ fmt(game.gold) }}</div>
-            <div class="cur-rate" v-if="game.passivePerSec > 0">+{{ fmt(game.passivePerSec) }}/сек</div>
+        <!-- Top bar: currencies + burger -->
+        <div class="topbar">
+          <div class="cur gold">
+            <img :src="iconCoin" alt="" class="coin-img" draggable="false" />
+            <div class="cur-info">
+              <div class="cur-value">{{ fmt(game.gold) }}</div>
+              <div class="cur-rate" v-if="game.passivePerSec > 0">
+                +{{ fmt(game.passivePerSec) }}/сек
+              </div>
+            </div>
+          </div>
+          <div
+            class="cur diamonds clickable"
+            @click.stop="
+              ui()
+              showShop = true
+            "
+          >
+            <img :src="iconStone" alt="" class="gem-img" draggable="false" />
+            <div class="cur-value">{{ game.diamonds }}</div>
+            <span class="plus" aria-hidden="true"></span>
           </div>
         </div>
-        <div class="cur diamonds clickable" @click.stop="ui(); showShop = true">
-          <img :src="iconStone" alt="" class="gem-img" draggable="false" />
-          <div class="cur-value">{{ game.diamonds }}</div>
-          <span class="plus">+</span>
+
+        <Transition name="order-toast">
+          <button
+            v-if="game.orderNotice && !onForge && !showOrders"
+            type="button"
+            class="order-toast"
+            @click.stop="openOrdersFromNotice"
+          >
+            <img :src="iconScroll" alt="" class="order-toast-scroll" draggable="false" />
+            <img
+              :src="game.orderNotice.heroAvatar"
+              alt=""
+              class="order-toast-hero"
+              draggable="false"
+            />
+            <div class="order-toast-body">
+              <div class="order-toast-title">Новый заказ!</div>
+              <div class="order-toast-sub">{{ game.orderNotice.heroName }}</div>
+              <div class="order-toast-item">нужен: {{ game.orderNotice.itemName }}</div>
+            </div>
+          </button>
+        </Transition>
+
+        <!-- Side action icons -->
+        <div class="side-right">
+          <button
+            class="side-btn"
+            title="Настройки"
+            @click.stop="
+              ui()
+              showSettings = true
+            "
+          >
+            <span class="side-icon"><img :src="navSettings" alt="" draggable="false" /></span>
+            <span class="side-label">Настройки</span>
+          </button>
+          <button
+            class="side-btn"
+            title="Магазин"
+            @click.stop="
+              ui()
+              showShop = true
+            "
+          >
+            <span class="side-icon"><img :src="navShop" alt="" draggable="false" /></span>
+            <span class="side-label">Магазин</span>
+          </button>
+          <button
+            class="side-btn"
+            title="События"
+            @click.stop="
+              ui()
+              showAchievements = true
+            "
+          >
+            <span class="side-icon">
+              <img :src="navEvents" alt="" draggable="false" />
+              <span v-if="hasClaimableAchievement" class="notify-dot"></span>
+            </span>
+            <span class="side-label">События</span>
+          </button>
+          <button
+            class="side-btn"
+            title="Сундуки"
+            @click.stop="
+              ui()
+              showChests = true
+            "
+          >
+            <span class="side-icon">
+              <img :src="navChests" alt="" draggable="false" />
+              <span v-if="hasUnopenedChests" class="notify-dot"></span>
+            </span>
+            <span class="side-label">Сундуки</span>
+          </button>
         </div>
-      </div>
 
-      <!-- Side action icons -->
-      <div class="side-right">
-        <button class="side-btn" title="Настройки" @click.stop="ui(); showSettings = true">
-          <span class="side-icon"><img :src="navSettings" alt="" draggable="false" /></span>
-          <span class="side-label">Настройки</span>
-        </button>
-        <button class="side-btn" title="Магазин" @click.stop="ui(); showShop = true">
-          <span class="side-icon"><img :src="navShop" alt="" draggable="false" /></span>
-          <span class="side-label">Магазин</span>
-        </button>
-        <button class="side-btn" title="События" @click.stop="ui(); showAchievements = true">
-          <span class="side-icon">
-            <img :src="navEvents" alt="" draggable="false" />
-            <span v-if="hasClaimableAchievement" class="notify-dot"></span>
-          </span>
-          <span class="side-label">События</span>
-        </button>
-        <button class="side-btn" title="Сундуки" @click.stop="ui(); showChests = true">
-          <span class="side-icon">
-            <img :src="navChests" alt="" draggable="false" />
-            <span v-if="hasUnopenedChests" class="notify-dot"></span>
-          </span>
-          <span class="side-label">Сундуки</span>
-        </button>
-      </div>
-
-      <!-- Main play area -->
-      <div v-if="!onForge" class="stage" ref="stageEl" @click="doClick($event)">
-        <img :src="characterImg" alt="Кузнец" class="character" draggable="false" />
-        <div class="anvil-area" ref="anvilEl">
-          <div class="anvil-glow"></div>
-          <img :src="imgAnvil" alt="" class="anvil-img" draggable="false" />
-          <img :src="imgHammer" alt="" class="hammer-img" :class="{ striking }" draggable="false" />
-          <div class="sparks">
+        <!-- Main play area -->
+        <div v-if="!onForge" class="stage" ref="stageEl" @click="doClick($event)">
+          <img :src="characterImg" alt="Кузнец" class="character" draggable="false" />
+          <div class="anvil-area" ref="anvilEl">
+            <div class="anvil-glow"></div>
+            <img :src="imgAnvil" alt="" class="anvil-img" draggable="false" />
+            <img
+              :src="imgHammer"
+              alt=""
+              class="hammer-img"
+              :class="{ striking }"
+              draggable="false"
+            />
+            <div class="sparks">
+              <div
+                v-for="s in sparks"
+                :key="s.id"
+                class="spark"
+                :style="{
+                  '--angle': s.angle + 'deg',
+                  '--dist': s.dist + 'px',
+                  '--size': s.size + 'px',
+                  animationDelay: s.delay + 'ms',
+                }"
+              ></div>
+            </div>
+          </div>
+          <transition-group name="float" tag="div" class="floats">
             <div
-              v-for="s in sparks"
-              :key="s.id"
-              class="spark"
-              :style="{
-                '--angle': s.angle + 'deg',
-                '--dist': s.dist + 'px',
-                '--size': s.size + 'px',
-                animationDelay: s.delay + 'ms',
-              }"
-            ></div>
-          </div>
-        </div>
-        <transition-group name="float" tag="div" class="floats">
-          <div
-            v-for="f in floats"
-            :key="f.id"
-            class="float-hit"
-            :class="{ crit: f.crit }"
-            :style="{ left: f.x + 'px', top: f.y + 'px' }"
-          >
-            {{ f.text }}
-            <img :src="iconCoin" alt="" class="float-coin" draggable="false" />
-            <span v-if="f.crit" class="crit-label">КРИТ!</span>
-          </div>
-        </transition-group>
-
-        <transition-group name="boost" tag="div" class="active-boosters">
-          <div
-            v-for="b in activeBoosters"
-            :key="b.id"
-            class="boost-chip"
-            :class="'v-' + b.variant"
-          >
-            <div class="boost-icon">
-              <img :src="b.icon" :alt="b.iconAlt" draggable="false" />
+              v-for="f in floats"
+              :key="f.id"
+              class="float-hit"
+              :class="{ crit: f.crit }"
+              :style="{ left: f.x + 'px', top: f.y + 'px' }"
+            >
+              {{ f.text }}
+              <img :src="iconCoin" alt="" class="float-coin" draggable="false" />
+              <span v-if="f.crit" class="crit-label">КРИТ!</span>
             </div>
-            <div class="boost-body">
-              <div class="boost-label">{{ b.label }}</div>
-              <div class="boost-time">{{ fmtBoosterTime(b.left) }}</div>
+          </transition-group>
+
+          <transition-group name="boost" tag="div" class="active-boosters">
+            <div
+              v-for="b in activeBoosters"
+              :key="b.id"
+              class="boost-chip"
+              :class="'v-' + b.variant"
+            >
+              <div class="boost-icon">
+                <img :src="b.icon" :alt="b.iconAlt" draggable="false" />
+              </div>
+              <div class="boost-body">
+                <div class="boost-label">{{ b.label }}</div>
+                <div class="boost-time">{{ fmtBoosterTime(b.left) }}</div>
+              </div>
+            </div>
+          </transition-group>
+        </div>
+
+        <!-- Forge level bar -->
+        <div v-if="!onForge" class="forge-bar">
+          <div class="forge-title">Уровень наковальни {{ game.forgeLevelDisplay }}</div>
+          <div class="forge-progress">
+            <div class="forge-fill" :style="{ width: forgeProgress.pct + '%' }"></div>
+            <div class="forge-text">
+              {{ fmt(forgeProgress.current) }} / {{ fmt(forgeProgress.max) }} XP
             </div>
           </div>
-        </transition-group>
-      </div>
-
-      <!-- Forge level bar -->
-      <div v-if="!onForge" class="forge-bar">
-        <div class="forge-title">Уровень наковальни {{ game.forgeLevelDisplay }}</div>
-        <div class="forge-progress">
-          <div class="forge-fill" :style="{ width: forgeProgress.pct + '%' }"></div>
-          <div class="forge-text">{{ fmt(forgeProgress.current) }} / {{ fmt(forgeProgress.max) }} XP</div>
         </div>
-      </div>
 
-      <!-- Modals -->
-      <UpgradesModal :open="showUpgrades" @close="closeUpgrades" />
-      <ItemsModal :open="showItems" @close="showItems = false" />
-      <OrdersModal :open="showOrders" @close="closeOrders" />
-      <AchievementsModal :open="showAchievements" @close="showAchievements = false" />
-      <SettingsModal :open="showSettings" @close="showSettings = false" />
-      <ChestsModal
-        :open="showChests"
-        @close="showChests = false"
-        @reward="(r) => (chestReward = r)"
-      />
-      <ChestRewardPopup
-        v-if="chestReward"
-        :chest-name="chestReward.chestName"
-        :chest-img="chestReward.chestImg"
-        :gold="chestReward.gold"
-        :diamonds="chestReward.diamonds"
-        @close="chestReward = null"
-      />
-      <ShopModal :open="showShop" @close="showShop = false" />
-      <ForgeView v-if="onForge" @close="closeForgeWithAd" />
+        <!-- Modals -->
+        <UpgradesModal :open="showUpgrades" @close="closeUpgrades" />
+        <ItemsModal :open="showItems" @close="showItems = false" />
+        <OrdersModal :open="showOrders" @close="closeOrders" />
+        <AchievementsModal :open="showAchievements" @close="showAchievements = false" />
+        <SettingsModal :open="showSettings" @close="showSettings = false" />
+        <ChestsModal
+          :open="showChests"
+          @close="showChests = false"
+          @reward="(r) => (chestReward = r)"
+        />
+        <ChestRewardPopup
+          v-if="chestReward"
+          :chest-name="chestReward.chestName"
+          :chest-img="chestReward.chestImg"
+          :gold="chestReward.gold"
+          :diamonds="chestReward.diamonds"
+          @close="chestReward = null"
+        />
+        <ShopModal :open="showShop" @close="showShop = false" />
+        <ForgeView v-if="onForge" @close="closeForgeWithAd" />
 
-      <!-- Bottom blurred backdrop -->
-      <div class="bottom-bg"></div>
+        <!-- Bottom blurred backdrop -->
+        <div class="bottom-bg"></div>
 
-      <!-- Bottom navigation -->
-      <nav class="bottom-nav">
-        <button :class="{ active: showUpgrades }" @click.stop="ui(); showUpgrades = true">
-          <img :src="iconLevelUp" alt="" class="nav-icon" draggable="false" />
-          <span class="nav-label">Улучшения</span>
-        </button>
-        <button :class="{ active: showItems }" @click.stop="ui(); showItems = true">
-          <img :src="iconSword" alt="" class="nav-icon" draggable="false" />
-          <span class="nav-label">Предметы</span>
-        </button>
-        <button :class="{ active: showOrders }" @click.stop="ui(); showOrders = true">
-          <span class="nav-icon-wrap">
-            <img :src="iconScroll" alt="" class="nav-icon" draggable="false" />
-            <span v-if="hasOrders" class="notify-dot nav-dot"></span>
-          </span>
-          <span class="nav-label">Заказы</span>
-        </button>
-        <button :class="{ active: onForge }" @click.stop="ui(); openForge()">
-          <img :src="iconBlacksmith" alt="" class="nav-icon" draggable="false" />
-          <span class="nav-label">Кузница</span>
-        </button>
-      </nav>
-
+        <!-- Bottom navigation -->
+        <nav class="bottom-nav">
+          <button
+            :class="{ active: showUpgrades }"
+            @click.stop="
+              ui()
+              showUpgrades = true
+            "
+          >
+            <img :src="iconLevelUp" alt="" class="nav-icon" draggable="false" />
+            <span class="nav-label">Улучшения</span>
+          </button>
+          <button
+            :class="{ active: showItems }"
+            @click.stop="
+              ui()
+              showItems = true
+            "
+          >
+            <img :src="iconSword" alt="" class="nav-icon" draggable="false" />
+            <span class="nav-label">Предметы</span>
+          </button>
+          <button
+            :class="{ active: showOrders }"
+            @click.stop="
+              ui()
+              showOrders = true
+            "
+          >
+            <span class="nav-icon-wrap">
+              <img :src="iconScroll" alt="" class="nav-icon" draggable="false" />
+              <span v-if="hasOrders" class="notify-dot nav-dot"></span>
+            </span>
+            <span class="nav-label">Заказы</span>
+          </button>
+          <button
+            :class="{ active: onForge }"
+            @click.stop="
+              ui()
+              openForge()
+            "
+          >
+            <img :src="iconBlacksmith" alt="" class="nav-icon" draggable="false" />
+            <span class="nav-label">Кузница</span>
+          </button>
+        </nav>
       </div>
     </div>
   </div>
@@ -538,8 +666,7 @@ watch(chestReward, (v, prev) => {
   /* Tablet frame: thick dark bezel with metallic sheen */
   padding: 28px 22px;
   border-radius: 36px;
-  background-image:
-    linear-gradient(145deg, #2a2520 0%, #15110d 30%, #0a0805 70%, #1c1814 100%);
+  background-image: linear-gradient(145deg, #2a2520 0%, #15110d 30%, #0a0805 70%, #1c1814 100%);
   border: 2px solid #3a3530;
   box-shadow:
     inset 0 0 0 2px #050302,
@@ -560,7 +687,9 @@ watch(chestReward, (v, prev) => {
   height: 8px;
   border-radius: 50%;
   background: radial-gradient(circle at 30% 30%, #4a4540, #0a0805);
-  box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow:
+    inset 0 0 2px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
   z-index: 10;
 }
 
@@ -576,7 +705,9 @@ watch(chestReward, (v, prev) => {
   border-radius: 50%;
   background: radial-gradient(circle at 35% 35%, #2a2520, #0a0805);
   border: 1px solid #3a3530;
-  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.08), inset 0 -1px 2px rgba(0, 0, 0, 0.8);
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 255, 0.08),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.8);
   z-index: 10;
 }
 
@@ -634,7 +765,9 @@ watch(chestReward, (v, prev) => {
 }
 .cur.clickable {
   cursor: pointer;
-  transition: transform 0.08s, filter 0.1s;
+  transition:
+    transform 0.08s,
+    filter 0.1s;
 }
 .cur.clickable:hover {
   filter: brightness(1.08);
@@ -697,24 +830,37 @@ watch(chestReward, (v, prev) => {
 }
 
 .plus {
+  position: relative;
   width: 26px;
   height: 26px;
+  flex-shrink: 0;
   border-radius: 50%;
   background: linear-gradient(180deg, #7ee06a, #2e8b3a);
-  color: #fff;
   border: 2px solid #1c5a25;
-  font-weight: 900;
-  font-size: 18px;
-  line-height: 1;
   cursor: pointer;
   margin-left: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
+  box-sizing: border-box;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.4),
     0 2px 4px rgba(0, 0, 0, 0.5);
+}
+.plus::before,
+.plus::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border-radius: 1px;
+}
+.plus::before {
+  width: 11px;
+  height: 2px;
+}
+.plus::after {
+  width: 2px;
+  height: 11px;
 }
 
 /* Side action buttons */
@@ -764,10 +910,103 @@ watch(chestReward, (v, prev) => {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
   z-index: 1;
 }
+
+.order-toast {
+  position: absolute;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 24px);
+  padding: 10px 14px;
+  border: 2px solid #d4881a;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(74, 44, 20, 0.97) 0%, rgba(42, 24, 8, 0.97) 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 220, 160, 0.25),
+    0 8px 24px rgba(0, 0, 0, 0.65);
+  color: #fff5d0;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  animation: orderToastPulse 2s ease-in-out infinite;
+}
+.order-toast-scroll {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
+}
+.order-toast-hero {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #f0c060;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+.order-toast-body {
+  min-width: 0;
+}
+.order-toast-title {
+  font-size: 14px;
+  font-weight: 900;
+  color: #ffd95a;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+.order-toast-sub {
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.order-toast-item {
+  font-size: 11px;
+  font-weight: 600;
+  color: #e8d4a8;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.order-toast-enter-active,
+.order-toast-leave-active {
+  transition:
+    opacity 0.25s,
+    transform 0.25s;
+}
+.order-toast-enter-from,
+.order-toast-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-12px);
+}
+@keyframes orderToastPulse {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 2px 0 rgba(255, 220, 160, 0.25),
+      0 8px 24px rgba(0, 0, 0, 0.65);
+  }
+  50% {
+    box-shadow:
+      inset 0 2px 0 rgba(255, 220, 160, 0.35),
+      0 8px 24px rgba(0, 0, 0, 0.65),
+      0 0 16px rgba(240, 192, 96, 0.45);
+  }
+}
 .side-label {
   font-size: 12px;
   font-weight: 800;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 2px 4px rgba(0, 0, 0, 0.7);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.9),
+    0 2px 4px rgba(0, 0, 0, 0.7);
 }
 
 /* Stage with character */
@@ -818,7 +1057,12 @@ watch(chestReward, (v, prev) => {
   width: 260px;
   height: 110px;
   border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(255, 200, 60, 0.75) 0%, rgba(255, 140, 30, 0.45) 40%, rgba(255, 80, 20, 0) 75%);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 200, 60, 0.75) 0%,
+    rgba(255, 140, 30, 0.45) 40%,
+    rgba(255, 80, 20, 0) 75%
+  );
   animation: glowPulse 1.8s ease-in-out infinite;
   filter: blur(3px);
 }
@@ -849,14 +1093,29 @@ watch(chestReward, (v, prev) => {
   animation: hammerStrike 0.28s cubic-bezier(0.4, 0, 0.6, 1);
 }
 @keyframes glowPulse {
-  0%, 100% { opacity: 0.8; transform: translateX(-50%) scale(1); }
-  50% { opacity: 1; transform: translateX(-50%) scale(1.1); }
+  0%,
+  100% {
+    opacity: 0.8;
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.1);
+  }
 }
 @keyframes hammerStrike {
-  0%   { transform: translate(-30%, 0) rotate(-20deg); }
-  30%  { transform: translate(-30%, -8%) rotate(20deg); }
-  60%  { transform: translate(-30%, 8%) rotate(-70deg); }
-  100% { transform: translate(-30%, 0) rotate(-20deg); }
+  0% {
+    transform: translate(-30%, 0) rotate(-20deg);
+  }
+  30% {
+    transform: translate(-30%, -8%) rotate(20deg);
+  }
+  60% {
+    transform: translate(-30%, 8%) rotate(-70deg);
+  }
+  100% {
+    transform: translate(-30%, 0) rotate(-20deg);
+  }
 }
 
 /* Sparks burst on strike */
@@ -890,7 +1149,8 @@ watch(chestReward, (v, prev) => {
   }
   15% {
     opacity: 1;
-    transform: translate(-50%, -50%) rotate(var(--angle)) translateX(calc(var(--dist) * 0.3)) scale(1);
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateX(calc(var(--dist) * 0.3))
+      scale(1);
   }
   100% {
     transform: translate(-50%, -50%) rotate(var(--angle)) translateX(var(--dist)) scale(0.3);
@@ -898,8 +1158,13 @@ watch(chestReward, (v, prev) => {
   }
 }
 @keyframes hammerBob {
-  0%, 100% { transform: translate(-30%, 0) rotate(-20deg); }
-  50%      { transform: translate(-30%, -6%) rotate(-18deg); }
+  0%,
+  100% {
+    transform: translate(-30%, 0) rotate(-20deg);
+  }
+  50% {
+    transform: translate(-30%, -6%) rotate(-18deg);
+  }
 }
 
 /* Floating hit numbers */
@@ -946,9 +1211,18 @@ watch(chestReward, (v, prev) => {
   margin-left: 4px;
 }
 @keyframes floatUp {
-  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
-  20% { opacity: 1; transform: translate(-50%, -90%) scale(1.1); }
-  100% { opacity: 0; transform: translate(-50%, -180%) scale(1); }
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -90%) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -180%) scale(1);
+  }
 }
 
 .active-boosters {
@@ -1045,7 +1319,8 @@ watch(chestReward, (v, prev) => {
 }
 
 @keyframes chipPulse {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow:
       0 3px 8px rgba(0, 0, 0, 0.55),
       inset 0 1px 0 rgba(255, 255, 255, 0.22),
@@ -1121,8 +1396,7 @@ watch(chestReward, (v, prev) => {
 }
 .forge-fill {
   height: 100%;
-  background:
-    linear-gradient(180deg, #a8f070 0%, #5bc94a 45%, #2e8b3a 100%);
+  background: linear-gradient(180deg, #a8f070 0%, #5bc94a 45%, #2e8b3a 100%);
   border-radius: 10px;
   transition: width 0.3s;
   box-shadow:
@@ -1170,29 +1444,29 @@ watch(chestReward, (v, prev) => {
   background: linear-gradient(
     180deg,
     rgba(10, 6, 3, 0) 0%,
-    rgba(10, 6, 3, 0.1) 20%,
-    rgba(10, 6, 3, 0.3) 40%,
-    rgba(8, 4, 2, 0.55) 60%,
-    rgba(8, 4, 2, 0.8) 80%,
-    rgba(5, 3, 1, 0.95) 100%
+    rgba(10, 6, 3, 0.05) 20%,
+    rgba(10, 6, 3, 0.15) 40%,
+    rgba(8, 4, 2, 0.32) 60%,
+    rgba(8, 4, 2, 0.5) 80%,
+    rgba(5, 3, 1, 0.65) 100%
   );
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   -webkit-mask-image: linear-gradient(
     180deg,
     transparent 0%,
-    rgba(0, 0, 0, 0.15) 25%,
-    rgba(0, 0, 0, 0.5) 50%,
-    rgba(0, 0, 0, 0.85) 75%,
-    #000 100%
+    rgba(0, 0, 0, 0.08) 25%,
+    rgba(0, 0, 0, 0.28) 50%,
+    rgba(0, 0, 0, 0.52) 75%,
+    rgba(0, 0, 0, 0.72) 100%
   );
-          mask-image: linear-gradient(
+  mask-image: linear-gradient(
     180deg,
     transparent 0%,
-    rgba(0, 0, 0, 0.15) 25%,
-    rgba(0, 0, 0, 0.5) 50%,
-    rgba(0, 0, 0, 0.85) 75%,
-    #000 100%
+    rgba(0, 0, 0, 0.08) 25%,
+    rgba(0, 0, 0, 0.28) 50%,
+    rgba(0, 0, 0, 0.52) 75%,
+    rgba(0, 0, 0, 0.72) 100%
   );
 }
 .bottom-nav {
@@ -1213,8 +1487,7 @@ watch(chestReward, (v, prev) => {
   position: relative;
   width: 88px;
   flex-shrink: 0;
-  background:
-    linear-gradient(180deg, #c08040 0%, #9a5a25 45%, #7a4418 100%);
+  background: linear-gradient(180deg, #c08040 0%, #9a5a25 45%, #7a4418 100%);
   border: 2px solid #4a2810;
   border-radius: 12px;
   color: #fff5d0;
@@ -1230,7 +1503,9 @@ watch(chestReward, (v, prev) => {
     inset 0 -2px 0 rgba(0, 0, 0, 0.35),
     0 3px 0 #3a1f0c,
     0 4px 6px rgba(0, 0, 0, 0.5);
-  transition: transform 0.08s, box-shadow 0.08s;
+  transition:
+    transform 0.08s,
+    box-shadow 0.08s;
 }
 .bottom-nav button::before {
   content: '';
@@ -1252,8 +1527,7 @@ watch(chestReward, (v, prev) => {
     0 2px 4px rgba(0, 0, 0, 0.5);
 }
 .bottom-nav button.active {
-  background:
-    linear-gradient(180deg, #d89048 0%, #a8602a 45%, #82471a 100%);
+  background: linear-gradient(180deg, #d89048 0%, #a8602a 45%, #82471a 100%);
   border-color: #5a3014;
   box-shadow:
     inset 0 2px 0 rgba(255, 230, 170, 0.5),
@@ -1276,8 +1550,15 @@ watch(chestReward, (v, prev) => {
   animation: dotPulse 1.4s ease-in-out infinite;
 }
 @keyframes dotPulse {
-  0%, 100% { transform: scale(1); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); }
-  50%      { transform: scale(1.18); box-shadow: 0 0 8px rgba(255, 80, 80, 0.85); }
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  }
+  50% {
+    transform: scale(1.18);
+    box-shadow: 0 0 8px rgba(255, 80, 80, 0.85);
+  }
 }
 .nav-icon {
   width: 36px;
@@ -1363,11 +1644,22 @@ watch(chestReward, (v, prev) => {
   padding: 2px 6px;
   border-radius: 4px;
 }
-.r-Обычный { background: #777; }
-.r-Редкий { background: #2e86c1; }
-.r-Эпический { background: #8e44ad; }
-.r-Легендарный { background: #d4881a; color: #1a0f06; }
-.r-Мифический { background: #c0392b; }
+.r-Обычный {
+  background: #777;
+}
+.r-Редкий {
+  background: #2e86c1;
+}
+.r-Эпический {
+  background: #8e44ad;
+}
+.r-Легендарный {
+  background: #d4881a;
+  color: #1a0f06;
+}
+.r-Мифический {
+  background: #c0392b;
+}
 .buy {
   background: #2c8a3a;
   color: #fff;
@@ -1522,6 +1814,22 @@ label {
     padding: 8px 8px;
     gap: 6px;
   }
+  .order-toast {
+    top: 58px;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  .order-toast-scroll {
+    width: 30px;
+    height: 30px;
+  }
+  .order-toast-hero {
+    width: 38px;
+    height: 38px;
+  }
+  .order-toast-title {
+    font-size: 13px;
+  }
   .cur {
     height: 38px;
     border-radius: 19px;
@@ -1545,7 +1853,14 @@ label {
   .plus {
     width: 22px;
     height: 22px;
-    font-size: 15px;
+  }
+  .plus::before {
+    width: 9px;
+    height: 2px;
+  }
+  .plus::after {
+    width: 2px;
+    height: 9px;
   }
 
   /* Side action buttons — smaller, tighter */

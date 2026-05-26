@@ -1,18 +1,23 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import GameModal from './GameModal.vue'
+import ConfirmDialog from './ConfirmDialog.vue'
 import { useGameStore } from '@/stores/game'
 
 defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
 const game = useGameStore()
+const showResetConfirm = ref(false)
 
 function resetProgress() {
-  if (confirm('Сбросить весь прогресс? Это действие необратимо.')) {
-    game.resetAll()
-    emit('close')
-  }
+  showResetConfirm.value = true
+}
+
+function confirmReset() {
+  game.resetAll()
+  showResetConfirm.value = false
+  emit('close')
 }
 const saved = ref(false)
 let savedTimer = 0
@@ -25,6 +30,15 @@ function saveProgress() {
 </script>
 
 <template>
+  <ConfirmDialog
+    :open="showResetConfirm"
+    message="Сбросить весь прогресс? Это действие необратимо."
+    confirm-label="Сбросить"
+    cancel-label="Отмена"
+    danger
+    @confirm="confirmReset"
+    @cancel="showResetConfirm = false"
+  />
   <GameModal :open="open" title="Настройки" @close="emit('close')">
     <div class="s-list">
       <label class="s-row">

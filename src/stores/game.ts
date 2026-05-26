@@ -97,6 +97,13 @@ export interface Order {
   timeLeft: number
 }
 
+export interface OrderNotice {
+  id: string
+  heroName: string
+  heroAvatar: string
+  itemName: string
+}
+
 export interface Chest {
   id: string
   type: 'Обычный' | 'Редкий' | 'Эпический'
@@ -231,6 +238,7 @@ export const useGameStore = defineStore('game', {
     ] as Item[],
 
     orders: [] as Order[],
+    orderNotice: null as OrderNotice | null,
 
     chests: [
       { id: 'c1', type: 'Обычный', count: 0 },
@@ -405,10 +413,17 @@ export const useGameStore = defineStore('game', {
         rewardDiamonds: rng(0, 2),
         timeLeft: 60,
       }
-      const wasEmpty = this.orders.length === 0
       this.orders.push(order)
-      // Only fanfare on the 0 -> 1+ transition, not on every fill-up.
-      if (wasEmpty) playSfx('order')
+      this.orderNotice = {
+        id: order.id,
+        heroName: hero.name,
+        heroAvatar: hero.avatar,
+        itemName: it.name,
+      }
+    },
+
+    clearOrderNotice() {
+      this.orderNotice = null
     },
 
     completeOrder(id: string, rewardMul = 1) {

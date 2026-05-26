@@ -6,18 +6,13 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import { initYandex, getYsdk, gameplayInit, gameplayPause, gameplayResume } from '@/yandex/sdk'
+import { initTouchScrollLock } from '@/utils/touchScrollLock'
 
 window.addEventListener('contextmenu', (e) => e.preventDefault())
 window.addEventListener('selectstart', (e) => e.preventDefault())
 window.addEventListener('dragstart', (e) => e.preventDefault())
 window.addEventListener('gesturestart', (e) => e.preventDefault())
-document.addEventListener(
-  'touchmove',
-  (e) => {
-    if (e.touches.length > 1) e.preventDefault()
-  },
-  { passive: false },
-)
+initTouchScrollLock()
 
 initYandex().finally(() => {
   const app = createApp(App)

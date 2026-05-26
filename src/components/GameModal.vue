@@ -163,6 +163,8 @@ const emit = defineEmits<{ close: [] }>()
   border-radius: 14px;
   padding: 12px;
   overflow-y: auto;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
   box-shadow:
     inset 0 2px 6px rgba(0, 0, 0, 0.5),
     inset 0 -1px 0 rgba(255, 215, 130, 0.15);

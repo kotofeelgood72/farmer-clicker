@@ -203,6 +203,8 @@ function doUpgrade() {
   flex-direction: column;
   gap: 8px;
   overflow-y: auto;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
   padding: 0;
   background: transparent;
   border: none;
@@ -459,6 +461,7 @@ function doUpgrade() {
     flex-direction: row;
     overflow-x: auto;
     overflow-y: hidden;
+    touch-action: pan-x;
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
     gap: 8px;

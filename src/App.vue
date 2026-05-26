@@ -21,23 +21,27 @@ html, body {
   height: 100vh;
   /* dvh handles mobile browser chrome (URL bar) correctly */
   height: 100dvh;
+  position: fixed;
+  inset: 0;
   overflow: hidden;
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
-  touch-action: manipulation;
+  touch-action: none;
   overscroll-behavior: none;
 }
 body {
   background-size: cover;
   background-position: center center;
   background-repeat: no-repeat;
-  background-attachment: fixed;
+  /* background-attachment: fixed triggers rubber-band scroll on iOS Safari */
 }
 #app {
   width: 100%;
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: none;
 }
 * {
   box-sizing: border-box;

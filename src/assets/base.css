@@ -70,13 +70,17 @@ img {
 
 html,
 body {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
   overscroll-behavior: none;
-  touch-action: manipulation;
+  touch-action: none;
   overflow: hidden;
 }
 
 body {
-  min-height: 100vh;
   color: var(--color-text);
   background: var(--color-background);
   transition:
