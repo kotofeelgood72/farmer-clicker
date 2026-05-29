@@ -47,30 +47,54 @@ const DEFAULT_LINEAR_AFFECTION = 3
 const DEFAULT_BRANCHING_AFFECTION = 3
 const DEFAULT_EMOTION = 'neutral'
 
-/** `[фото]` или `[фото:3]` — плейсхолдер фото в чате */
-const PHOTO_PLACEHOLDER_RX = /^\[фото(?::(\d+))?\]$/i
+/** `[фото]` или `[фото:3]` — в отдельной строке или внутри текста */
+const PHOTO_INLINE_RX = /\[фото(?::(\d+))?\]/gi
+
+export interface ExtractedPhotoPlaceholder {
+  hasPhoto: boolean
+  explicitIndex?: number
+  text: string
+}
+
+/** Убирает плейсхолдер из текста; возвращает номер галереи, если указан явно. */
+export function extractPhotoPlaceholder(text: string): ExtractedPhotoPlaceholder {
+  const matches = [...text.matchAll(PHOTO_INLINE_RX)]
+  if (matches.length === 0) {
+    return { hasPhoto: false, text }
+  }
+
+  const explicitRaw = matches[0]![1]
+  const explicitIndex =
+    explicitRaw !== undefined && Number.isFinite(Number(explicitRaw))
+      ? Number(explicitRaw)
+      : undefined
+
+  const cleaned = text
+    .replace(PHOTO_INLINE_RX, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+
+  return { hasPhoto: true, explicitIndex, text: cleaned }
+}
 
 export function parsePhotoPlaceholder(text: string): {
   isPhoto: boolean
   explicitIndex?: number
 } {
-  const m = text.trim().match(PHOTO_PLACEHOLDER_RX)
-  if (!m) return { isPhoto: false }
-  const explicit = m[1] ? Number(m[1]) : undefined
-  return {
-    isPhoto: true,
-    explicitIndex: explicit !== undefined && Number.isFinite(explicit) ? explicit : undefined,
-  }
+  const { hasPhoto, explicitIndex } = extractPhotoPlaceholder(text)
+  if (!hasPhoto) return { isPhoto: false }
+  return { isPhoto: true, explicitIndex }
 }
 
 function assignPhotoIndices(nodes: DialogNode[]): void {
   let autoIndex = 0
   for (const node of nodes) {
-    const { isPhoto, explicitIndex } = parsePhotoPlaceholder(node.text)
-    if (!isPhoto) continue
+    const { hasPhoto, explicitIndex, text } = extractPhotoPlaceholder(node.text)
+    if (!hasPhoto) continue
     autoIndex += 1
     node.photoIndex = explicitIndex ?? autoIndex
-    node.text = ''
+    node.text = text
   }
 }
 

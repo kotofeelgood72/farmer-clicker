@@ -180,7 +180,7 @@ watch(
     const last = dialogChat.messages.value.at(-1)
     if (last?.sender === 'them') {
       trackThemMessage()
-      touchChat(girlId.value, { preview: last.text })
+      touchChat(girlId.value, { preview: messagePreview(last) })
     }
     syncChatPreview()
     void scrollToBottom()
@@ -287,6 +287,7 @@ function onGoToDate() {
       <TransitionGroup name="msg" tag="div" class="msg-list">
         <div v-for="m in messages" :key="m.id" :class="['message', `message--${m.sender}`]">
           <div class="bubble" :class="{ 'bubble--photo': m.image }">
+            <p v-if="m.image && m.text" class="bubble-caption">{{ m.text }}</p>
             <img
               v-if="m.image"
               :src="m.image"
@@ -585,6 +586,13 @@ function onGoToDate() {
 .bubble--photo {
   padding: 4px;
   max-width: min(72vw, 220px);
+}
+
+.bubble-caption {
+  margin: 0;
+  padding: 8px 10px 6px;
+  font-size: 14px;
+  line-height: 1.35;
 }
 
 .bubble-photo {

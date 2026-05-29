@@ -161,7 +161,7 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
       <EnterItem v-if="!visible.length" :order="2" class="empty">Пока ничего нет</EnterItem>
     </div>
 
-    <div v-if="showNoDateModal" class="dates-overlay phone-modal-overlay">
+    <div v-if="showNoDateModal" class="dates-overlay">
       <div class="dates-overlay-card modal-surface">
         <div class="dates-overlay-emoji">💬</div>
         <h2 class="dates-overlay-title">Пока рано на свидание</h2>
@@ -214,6 +214,9 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   align-items: center;
   justify-content: center;
   padding: 24px;
+  background: var(--modal-overlay-bg);
+  backdrop-filter: blur(var(--modal-overlay-blur)) saturate(1.15);
+  -webkit-backdrop-filter: blur(var(--modal-overlay-blur)) saturate(1.15);
   animation: dates-overlay-fade 0.32s ease-out;
 }
 

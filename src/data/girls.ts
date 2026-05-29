@@ -386,5 +386,17 @@ export function getGirlGalleryPhotoByIndex(
   index: number,
 ): string | undefined {
   if (!girl || index < 1) return undefined
-  return girl.gallery[index - 1]?.full
+
+  const byOrder = girl.gallery[index - 1]?.full
+  if (byOrder) return byOrder
+
+  const needle = `/gallery/${index}.`
+  const byFileIndex = girl.gallery.find((p) => p.full.includes(needle))?.full
+  if (byFileIndex) return byFileIndex
+
+  if (index === 1 && girl.gallery.length === 0) {
+    return girl.bgImage ?? girl.previewImage ?? girl.cardImage
+  }
+
+  return undefined
 }

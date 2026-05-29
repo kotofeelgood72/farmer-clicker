@@ -1,5 +1,5 @@
 import { computed, onUnmounted, ref, watch, type ComputedRef } from 'vue'
-import { parsePhotoPlaceholder } from '@/domain/dialog/parseDialog'
+import { extractPhotoPlaceholder } from '@/domain/dialog/parseDialog'
 import type { GirlDialog, DialogNode } from '@/domain/dialog/types'
 
 export type ChatSender = 'them' | 'me'
@@ -91,7 +91,7 @@ function messageFromNode(
 ): Pick<ChatMessage, 'text' | 'image'> {
   if (node.photoIndex && resolvePhoto) {
     const image = resolvePhoto(node.photoIndex)
-    if (image) return { text: '', image }
+    if (image) return { text: node.text, image }
   }
   return { text: node.text }
 }
@@ -115,11 +115,16 @@ function enrichPhotoMessages(
   let photoMsgIdx = 0
   return msgs.map((m) => {
     if (m.image) return m
-    if (m.sender !== 'them' || !parsePhotoPlaceholder(m.text).isPhoto) return m
-    const idx = photoIndices[photoMsgIdx++]
-    if (!idx) return m
+    if (m.sender !== 'them') return m
+
+    const { hasPhoto, explicitIndex, text } = extractPhotoPlaceholder(m.text)
+    if (!hasPhoto) return m
+
+    const idx = explicitIndex ?? photoIndices[photoMsgIdx++]
+    if (!idx) return { ...m, text }
+
     const image = resolvePhoto(idx)
-    return image ? { ...m, text: '', image } : m
+    return image ? { ...m, text, image } : { ...m, text }
   })
 }
 
