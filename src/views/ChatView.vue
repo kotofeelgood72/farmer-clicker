@@ -287,19 +287,28 @@ function onGoToDate() {
       <TransitionGroup name="msg" tag="div" class="msg-list">
         <div v-for="m in messages" :key="m.id" :class="['message', `message--${m.sender}`]">
           <div class="bubble" :class="{ 'bubble--photo': m.image }">
-            <p v-if="m.image && m.text" class="bubble-caption">{{ m.text }}</p>
-            <img
-              v-if="m.image"
-              :src="m.image"
-              alt=""
-              class="bubble-photo"
-              loading="lazy"
-            />
-            <template v-else>{{ m.text }}</template>
-            <span class="bubble-meta">
-              <span class="time">{{ m.time }}</span>
-              <IconCheckRead v-if="m.sender === 'me'" class="check" />
-            </span>
+            <template v-if="m.image">
+              <p v-if="m.text" class="bubble-caption">{{ m.text }}</p>
+              <div class="bubble-photo-frame">
+                <img
+                  :src="m.image"
+                  alt=""
+                  class="bubble-photo"
+                  decoding="async"
+                  loading="lazy"
+                />
+              </div>
+              <span class="bubble-meta bubble-meta--below">
+                <span class="time">{{ m.time }}</span>
+              </span>
+            </template>
+            <template v-else>
+              {{ m.text }}
+              <span class="bubble-meta">
+                <span class="time">{{ m.time }}</span>
+                <IconCheckRead v-if="m.sender === 'me'" class="check" />
+              </span>
+            </template>
           </div>
         </div>
       </TransitionGroup>
@@ -584,23 +593,40 @@ function onGoToDate() {
 }
 
 .bubble--photo {
-  padding: 4px;
-  max-width: min(72vw, 220px);
+  padding: 6px;
+  /* Не ограничивать 78% от .bubble — иначе фото ~110px и «мыло» */
+  max-width: min(88vw, 280px);
+  width: min(88vw, 280px);
 }
 
 .bubble-caption {
   margin: 0;
-  padding: 8px 10px 6px;
+  padding: 4px 6px 8px;
   font-size: 14px;
   line-height: 1.35;
+}
+
+.bubble-photo-frame {
+  overflow: hidden;
+  border-radius: 14px;
+  line-height: 0;
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .bubble-photo {
   display: block;
   width: 100%;
-  border-radius: 14px;
+  height: auto;
   aspect-ratio: 3 / 4;
   object-fit: cover;
+  object-position: center top;
+}
+
+.bubble-meta--below {
+  display: flex;
+  justify-content: flex-end;
+  margin: 6px 4px 0;
+  margin-left: 0;
 }
 
 .bubble-meta {

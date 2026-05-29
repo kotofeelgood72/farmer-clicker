@@ -103,6 +103,18 @@ function seedMessages(
   return [{ id: 1, sender: 'them', time: nowTime(), ...messageFromNode(node, resolvePhoto) }]
 }
 
+function upgradeSavedImages(
+  msgs: ChatMessage[],
+  upgradeImageUrl?: (imageUrl: string) => string | undefined,
+): ChatMessage[] {
+  if (!upgradeImageUrl) return msgs
+  return msgs.map((m) => {
+    if (!m.image) return m
+    const next = upgradeImageUrl(m.image)
+    return next ? { ...m, image: next } : m
+  })
+}
+
 function enrichPhotoMessages(
   msgs: ChatMessage[],
   dialog: GirlDialog,
@@ -132,9 +144,16 @@ export interface UseDialogChatOptions {
   dialog: ComputedRef<GirlDialog | undefined>
   storageKey: ComputedRef<string>
   resolvePhoto?: (photoIndex: number) => string | undefined
+  /** Подмена URL фото при загрузке сейва (например JPG → WebP для чата). */
+  upgradeImageUrl?: (imageUrl: string) => string | undefined
 }
 
-export function useDialogChat({ dialog, storageKey, resolvePhoto }: UseDialogChatOptions) {
+export function useDialogChat({
+  dialog,
+  storageKey,
+  resolvePhoto,
+  upgradeImageUrl,
+}: UseDialogChatOptions) {
   const nodeIndex = ref(0)
   const affection = ref(0)
   const messages = ref<ChatMessage[]>([])
@@ -159,7 +178,10 @@ export function useDialogChat({ dialog, storageKey, resolvePhoto }: UseDialogCha
     if (saved && saved.messages.length > 0) {
       nodeIndex.value = saved.nodeIndex
       affection.value = saved.affection
-      messages.value = enrichPhotoMessages(saved.messages, d, resolvePhoto)
+      messages.value = upgradeSavedImages(
+        enrichPhotoMessages(saved.messages, d, resolvePhoto),
+        upgradeImageUrl,
+      )
       nextId.value = Math.max(...saved.messages.map((m) => m.id), 1) + 1
       return
     }

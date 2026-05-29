@@ -1,6 +1,6 @@
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { getGirlDialog } from '@/data/dialogs'
-import { getGirlById, getGirlGalleryPhotoByIndex } from '@/data/girls'
+import { getGirlById, getGirlGalleryChatPhotoByIndex } from '@/data/girls'
 import { isDialogCompleted, loadDialogState, useDialogChat } from './useDialogChat'
 
 export type { ChatSender, ChatMessage, ChatReply } from './useDialogChat'
@@ -31,6 +31,11 @@ export function useGirlChat(girlIdSource: MaybeRefOrGetter<number>) {
   return useDialogChat({
     dialog,
     storageKey,
-    resolvePhoto: (index) => getGirlGalleryPhotoByIndex(girl.value, index),
+    resolvePhoto: (index) => getGirlGalleryChatPhotoByIndex(girl.value, index),
+    upgradeImageUrl: (url) => {
+      const match = url.match(/\/gallery\/(\d+)\./)
+      if (!match) return undefined
+      return getGirlGalleryChatPhotoByIndex(girl.value, Number(match[1]))
+    },
   })
 }

@@ -380,22 +380,49 @@ export function getGirlPortraitImage(girl: GirlProfile): string | undefined {
   return portraitPreviewById[girl.id] ?? girl.image
 }
 
-/** Фото для чата: `gallery/1.jpg` → index 1, `gallery/2.jpg` → index 2 */
+function resolveGalleryEntry(
+  girl: GirlProfile,
+  index: number,
+): GalleryPhoto | undefined {
+  const byOrder = girl.gallery[index - 1]
+  if (byOrder) return byOrder
+
+  const needle = `/gallery/${index}.`
+  return girl.gallery.find((p) => p.full.includes(needle) || p.thumb.includes(needle))
+}
+
+/** Полноразмерное фото (профиль, просмотр). */
 export function getGirlGalleryPhotoByIndex(
   girl: GirlProfile | undefined,
   index: number,
 ): string | undefined {
   if (!girl || index < 1) return undefined
 
-  const byOrder = girl.gallery[index - 1]?.full
-  if (byOrder) return byOrder
-
-  const needle = `/gallery/${index}.`
-  const byFileIndex = girl.gallery.find((p) => p.full.includes(needle))?.full
-  if (byFileIndex) return byFileIndex
+  const entry = resolveGalleryEntry(girl, index)
+  if (entry) return entry.full
 
   if (index === 1 && girl.gallery.length === 0) {
     return girl.bgImage ?? girl.previewImage ?? girl.cardImage
+  }
+
+  return undefined
+}
+
+/**
+ * Фото для пузыря в чате: WebP ~240px (без даунскейла 1024px JPG).
+ * `gallery/1.jpg` → index 1.
+ */
+export function getGirlGalleryChatPhotoByIndex(
+  girl: GirlProfile | undefined,
+  index: number,
+): string | undefined {
+  if (!girl || index < 1) return undefined
+
+  const entry = resolveGalleryEntry(girl, index)
+  if (entry) return entry.thumb || entry.full
+
+  if (index === 1 && girl.gallery.length === 0) {
+    return girl.previewImage ?? girl.cardImage ?? girl.bgImage
   }
 
   return undefined
