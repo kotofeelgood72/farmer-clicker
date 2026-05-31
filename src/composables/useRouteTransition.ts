@@ -3,6 +3,13 @@ import type { RouteLocationNormalized } from 'vue-router'
 
 export type RouteTransitionName = 'route-slide-forward' | 'route-slide-back'
 
+/** Явное направление для router.back() (одинаковый meta.depth даёт неверный forward). */
+let scheduledTransition: RouteTransitionName | null = null
+
+export function scheduleRouteTransition(name: RouteTransitionName) {
+  scheduledTransition = name
+}
+
 /** Ключ экрана: path без query, чтобы табы внутри страницы не пересоздавали view. */
 export function routeComponentKey(route: RouteLocationNormalized): string {
   return route.path
@@ -26,6 +33,12 @@ export function resolveRouteTransition(
   from: RouteLocationNormalized,
   to: RouteLocationNormalized,
 ): RouteTransitionName {
+  if (scheduledTransition) {
+    const next = scheduledTransition
+    scheduledTransition = null
+    return next
+  }
+
   const fromTab = tabOrderIndex(from)
   const toTab = tabOrderIndex(to)
 

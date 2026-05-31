@@ -335,7 +335,7 @@ function onGoToDate() {
         <div class="completion-emoji">💞</div>
         <div class="completion-title">Скоро на свидание</div>
         <div class="completion-text">
-          {{ character.name }} ждёт тебя в реальном мире
+          {{ character.name }} ждёт на свидание
         </div>
         <button class="completion-btn" type="button" @click="onGoToDate">
           На свидание с {{ character.name }}

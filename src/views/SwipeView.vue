@@ -12,6 +12,7 @@ import heartImg from '@/assets/ui/hearth.png'
 import energyImg from '@/assets/ui/energy.png'
 import { GIRLS, type GirlProfile } from '@/data/girls'
 import { useChatHistory } from '@/composables/useChatHistory'
+import { REWARDED_ENERGY_AMOUNT } from '@/constants/game'
 import { SWIPE_ENERGY_COST, useEnergy } from '@/composables/useEnergy'
 import { usePremium } from '@/composables/usePremium'
 import { useRewardedEnergy } from '@/composables/useRewardedEnergy'
@@ -77,6 +78,14 @@ const nopeOpacity = computed(() =>
 )
 const swipeActionsLocked = computed(
   () => animating.value || !canSpend(SWIPE_ENERGY_COST),
+)
+const showEnergyCta = computed(
+  () =>
+    hasSwipeCards.value &&
+    !isPremium.value &&
+    energy.value <= 0 &&
+    !animating.value &&
+    !matchVisible.value,
 )
 const showEnergyBoost = computed(() => isPremium.value || energy.value > 0)
 const energyBadgeLabel = computed(() => (isPremium.value ? '∞' : String(energy.value)))
@@ -213,6 +222,12 @@ function onEnergyBoost() {
   watchAdForEnergy()
 }
 
+function onGetSwipeEnergy() {
+  if (isPremium.value) return
+  if (energy.value > 0) return
+  watchAdForEnergy()
+}
+
 function onBack() {
   back('/main')
 }
@@ -275,6 +290,7 @@ onUnmounted(() => {
         v-if="current"
         ref="currentCard"
         class="card card--current"
+        :class="{ 'card--no-energy': showEnergyCta }"
         :key="`current-${current.id}-${index}`"
         @pointerdown="onPointerDown"
         @pointermove="onPointerMove"
@@ -323,6 +339,20 @@ onUnmounted(() => {
           :style="{ opacity: nopeOpacity }"
           aria-hidden="true"
         />
+
+        <div v-if="showEnergyCta" class="energy-cta" aria-live="polite">
+          <div class="energy-cta__backdrop" aria-hidden="true" />
+          <button
+            type="button"
+            class="energy-cta__btn"
+            :disabled="watchingAd"
+            @pointerdown.stop
+            @click.stop="onGetSwipeEnergy"
+          >
+            <span class="energy-cta__label">Получить энергию для знакомства</span>
+            <span class="energy-cta__hint">Смотреть рекламу · +{{ REWARDED_ENERGY_AMOUNT }} энергия</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -489,6 +519,14 @@ onUnmounted(() => {
   cursor: grabbing;
 }
 
+.card--no-energy {
+  cursor: default;
+}
+
+.card--no-energy:active {
+  cursor: default;
+}
+
 .card--next {
   z-index: 1;
   transform: scale(0.96) translateY(8px);
@@ -505,6 +543,86 @@ onUnmounted(() => {
   background-size: cover;
   background-position: center top;
   min-height: 100%;
+}
+
+.energy-cta {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 16px 88px;
+  pointer-events: none;
+}
+
+.energy-cta__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(12, 8, 24, 0.42);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.energy-cta__btn {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: min(100%, 300px);
+  padding: 16px 18px;
+  border: none;
+  border-radius: 18px;
+  font-family: inherit;
+  color: #fff;
+  background: linear-gradient(135deg, #b14bff 0%, #ff4d8e 100%);
+  box-shadow:
+    0 8px 28px rgba(177, 75, 255, 0.45),
+    0 0 0 0 rgba(255, 77, 142, 0.5);
+  cursor: pointer;
+  animation: energy-cta-pulse 1.6s ease-in-out infinite;
+}
+
+.energy-cta__btn:disabled {
+  opacity: 0.75;
+  cursor: wait;
+  animation: none;
+}
+
+.energy-cta__btn:active:not(:disabled) {
+  transform: scale(0.97);
+  animation: none;
+}
+
+.energy-cta__label {
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.energy-cta__hint {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.92;
+  text-align: center;
+}
+
+@keyframes energy-cta-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 8px 28px rgba(177, 75, 255, 0.45),
+      0 0 0 0 rgba(255, 77, 142, 0.45);
+  }
+  50% {
+    box-shadow:
+      0 10px 32px rgba(177, 75, 255, 0.55),
+      0 0 0 12px rgba(255, 77, 142, 0);
+  }
 }
 
 .rating-pill {

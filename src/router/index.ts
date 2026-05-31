@@ -66,7 +66,7 @@ const router = createRouter({
     {
       path: '/relationship/:id',
       name: 'relationship',
-      meta: { depth: 2 },
+      meta: { depth: 3 },
       component: () => import('@/views/GirlProfileView.vue'),
     },
   ],
