@@ -1,5 +1,6 @@
 import { resetAdPlacementsState } from '@/composables/useAdPlacements'
-import { resetGameReviewScheduler } from '@/composables/useGameReview'
+import { resetSwipePassesStore } from '@/composables/useSwipePasses'
+import { resetGameReviewStore } from '@/composables/useGameReview'
 import { resetReviewSession } from '@/yandex/sdk'
 import { resetAchievementsStore } from '@/composables/useAchievements'
 import { resetInAppNotificationsStore } from '@/composables/useInAppNotifications'
@@ -35,6 +36,7 @@ export function resetAllGameProgress() {
   resetAchievementsStore()
   resetInAppNotificationsStore()
   resetAdPlacementsState()
-  resetGameReviewScheduler()
+  resetSwipePassesStore()
+  resetGameReviewStore()
   resetReviewSession()
 }

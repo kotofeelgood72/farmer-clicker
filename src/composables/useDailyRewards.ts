@@ -227,7 +227,9 @@ function claimToday(multiplier = 1) {
   claimingAd.value = false
   isModalOpen.value = false
   fireConfetti()
-  scheduleGameReview('daily_reward')
+  if (state.value.streakDay === 2) {
+    scheduleGameReview('daily_reward_day_2')
+  }
   return true
 }
 

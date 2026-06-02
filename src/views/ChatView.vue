@@ -6,6 +6,7 @@ import IconArrowLeft from '~icons/solar/arrow-left-linear'
 import { GIRLS } from '@/data/girls'
 import { hasGirlDialog } from '@/data/dialogs'
 import { getDailyDateByGirlId } from '@/data/dates'
+import { hasMeetingStartedForGirl } from '@/composables/useMeetingChat'
 import { useAchievements } from '@/composables/useAchievements'
 import { fireConfetti } from '@/composables/useConfetti'
 import {
@@ -20,6 +21,8 @@ import { useAppNavigation } from '@/composables/useAppNavigation'
 import { usePremiumAccess } from '@/composables/usePremiumAccess'
 import { maybeInterstitialOnReply, runAfterInterstitial } from '@/composables/useAdPlacements'
 import { useDiamonds } from '@/composables/useDiamonds'
+import { usePremium } from '@/composables/usePremium'
+import { usePremiumResourceLabel } from '@/composables/usePremiumResourceLabel'
 import { computeReplyCost } from '@/composables/useDialogChat'
 import { useGirlChat, type ChatReply } from '@/composables/useGirlChat'
 import IconCheckRead from '~icons/solar/check-read-outline'
@@ -49,6 +52,12 @@ const { pushFrom, back } = useAppNavigation()
 const { canAccessGirl, openPremiumShop } = usePremiumAccess()
 const { touchChat, markChatRead } = useChatHistory()
 const { diamonds, canSpend, spend } = useDiamonds()
+const { isPremium } = usePremium()
+const diamondsLabel = usePremiumResourceLabel(diamonds)
+
+function replyDisplayCost(cost: number): number {
+  return isPremium.value ? 0 : cost
+}
 const {
   trackPlayerMessage,
   trackDiamondsSpent,
@@ -124,6 +133,11 @@ const chatComplete = computed(
   () => hasDialog.value && dialogChat.dialogComplete.value,
 )
 
+const dateStarted = computed(() => hasMeetingStartedForGirl(girlId.value))
+
+/** Модалка «на свидание» — только если чат завершён, а свидание ещё не начинали. */
+const showDateInvite = computed(() => chatComplete.value && !dateStarted.value)
+
 const showOnlineDot = computed(
   () => character.value.online && !isTyping.value,
 )
@@ -178,7 +192,9 @@ function onPickReply(reply: ChatReply | FallbackReply) {
     return
   }
 
-  trackDiamondsSpent(reply.cost)
+  if (!isPremium.value && reply.cost > 0) {
+    trackDiamondsSpent(reply.cost)
+  }
   trackPlayerMessage()
   maybeInterstitialOnReply(() => sendReply(reply))
 }
@@ -289,7 +305,7 @@ function onGoToDate() {
 
       <button type="button" class="diamonds-btn" aria-label="алмазы" @click="onOpenShop">
         <img :src="iconStone" alt="" class="diamonds-btn__icon" />
-        <span class="diamonds-btn__value">{{ diamonds }}</span>
+        <span class="diamonds-btn__value">{{ diamondsLabel }}</span>
       </button>
     </EnterItem>
 
@@ -335,12 +351,12 @@ function onGoToDate() {
         v-for="r in replies"
         :key="r.id"
         :text="r.text"
-        :cost="r.cost"
+        :cost="replyDisplayCost(r.cost)"
         @pick="onPickReply(r)"
       />
     </footer>
 
-    <div v-if="chatComplete" class="completion-overlay phone-modal-overlay">
+    <div v-if="showDateInvite" class="completion-overlay phone-modal-overlay">
       <div class="completion-card modal-surface">
         <div class="completion-emoji">💞</div>
         <div class="completion-title">Скоро на свидание</div>

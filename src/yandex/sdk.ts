@@ -151,33 +151,34 @@ export function gameplayResume(): void {
   syncGameplay()
 }
 
-let reviewDialogShown = false
+export interface ReviewRequestResult {
+  /** Диалог оценки был показан. */
+  shown: boolean
+  /** Игрок отправил оценку (feedbackSent). */
+  rated: boolean
+}
 
 /**
- * Запрос оценки игры в Яндекс Играх. Окно покажется только если canReview()
- * вернул true. Повторный показ диалога за сессию блокируется флагом.
- * @returns true если диалог оценки был показан
+ * Запрос оценки игры в Яндекс Играх. Окно покажется только если canReview() вернул true.
  */
-export async function tryRequestReview(): Promise<boolean> {
-  if (reviewDialogShown) return false
+export async function tryRequestReview(): Promise<ReviewRequestResult> {
   const sdk = getYsdk()
-  if (!sdk?.feedback) return false
+  if (!sdk?.feedback) return { shown: false, rated: false }
   try {
     const { value, reason } = await sdk.feedback.canReview()
     if (!value) {
       console.info('[yandex sdk] review unavailable:', reason)
-      return false
+      return { shown: false, rated: false }
     }
-    reviewDialogShown = true
     const { feedbackSent } = await sdk.feedback.requestReview()
     console.info('[yandex sdk] review sent:', feedbackSent)
-    return true
+    return { shown: true, rated: Boolean(feedbackSent) }
   } catch (err) {
     console.warn('[yandex sdk] requestReview failed', err)
-    return false
+    return { shown: false, rated: false }
   }
 }
 
 export function resetReviewSession(): void {
-  reviewDialogShown = false
+  /* совместимость с reset прогресса */
 }

@@ -1,4 +1,5 @@
 import { computed, ref, watch } from 'vue'
+import { isPremiumOwned } from '@/composables/usePremium'
 
 const STORAGE_KEY = 'swipe-diamonds-v1'
 
@@ -42,11 +43,14 @@ watch(
 const diamonds = computed(() => state.value.balance)
 
 function canSpend(amount: number): boolean {
-  return amount <= 0 || state.value.balance >= amount
+  if (amount <= 0) return true
+  if (isPremiumOwned()) return true
+  return state.value.balance >= amount
 }
 
 function spend(amount: number): boolean {
   if (amount <= 0) return true
+  if (isPremiumOwned()) return true
   if (state.value.balance < amount) return false
   state.value = { balance: state.value.balance - amount }
   return true

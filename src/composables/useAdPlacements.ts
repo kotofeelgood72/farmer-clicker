@@ -1,4 +1,4 @@
-import { canShowAds, showInterstitial } from '@/ads/ads'
+import { canShowAds, resetStartupAdState, showInterstitial } from '@/ads/ads'
 import { scheduleGameReview } from '@/composables/useGameReview'
 
 /** Вероятность interstitial при отправке ответа в чате/свидании. */
@@ -58,4 +58,5 @@ export function maybeInterstitialOnReply(action: () => void): void {
 
 export function resetAdPlacementsState(): void {
   lastRandomReplyAdAt = 0
+  resetStartupAdState()
 }

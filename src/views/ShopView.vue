@@ -60,23 +60,46 @@ const tabs: { key: TabKey; label: string }[] = [
 ]
 const activeTab = ref<TabKey>(parseShopTab(route.query.tab) ?? 'diamonds')
 
+const showShopTabs = computed(() => !isPremium.value)
+
 function selectTab(tab: TabKey) {
+  if (isPremium.value && tab !== 'premium') return
   activeTab.value = tab
   void replaceKeepingBack({ path: '/shop', query: { tab } })
 }
 
 function syncTabFromRoute() {
+  if (isPremium.value) {
+    activeTab.value = 'premium'
+    return
+  }
   const tab = parseShopTab(route.query.tab)
   if (tab) activeTab.value = tab
 }
 
+function ensurePremiumOnlyShop() {
+  if (!isPremium.value) return
+  activeTab.value = 'premium'
+  if (route.query.tab !== 'premium') {
+    void replaceKeepingBack({ path: '/shop', query: { tab: 'premium' } })
+  }
+}
+
 onMounted(() => {
   syncTabFromRoute()
+  ensurePremiumOnlyShop()
   void fetchPremiumCatalogProduct().then((p) => {
     premiumCatalog.value = p
   })
 })
-watch(() => route.query.tab, syncTabFromRoute)
+watch(() => route.query.tab, () => {
+  syncTabFromRoute()
+  ensurePremiumOnlyShop()
+})
+watch(isPremium, () => {
+  syncTabFromRoute()
+  ensurePremiumOnlyShop()
+})
 
 function formatIapPrice(value: number | string): string {
   const n = typeof value === 'string' ? Number(value) : value
@@ -137,13 +160,13 @@ const allItems: ShopItem[] = [
 ]
 
 const premiumBenefits = [
+  'Бесплатные ответы в чатах и на свиданиях',
   'Безлимитная энергия на свайпы',
-  'Эксклюзивные диалоги и сюжетные ветки',
   'Ранний доступ к новым персонажам',
   'Уникальные свидания и особые сцены',
   'Удвоенный ежедневный бонус алмазов',
   'Премиум-значок в профиле',
-  'Без рекламы',
+  'Смена аватара в профиле',
 ] as const
 
 const items = computed(() => allItems.filter((i) => i.tab === activeTab.value))
@@ -183,8 +206,14 @@ function onWatchAdForDiamonds() {
   watchAdForDiamonds()
 }
 
-function onBuyMore() {
-  if (isPremium.value) return
+function onCtaBuy() {
+  if (isPremium.value || purchasing.value) return
+
+  if (activeTab.value === 'premium' && premiumItem.value) {
+    void onBuy(premiumItem.value)
+    return
+  }
+
   selectTab('premium')
 }
 </script>
@@ -193,7 +222,7 @@ function onBuyMore() {
   <div class="shop">
     <EnterItem :order="0" solo>
       <PageHeader title="Магазин" @back="onBack">
-      <template #right>
+      <template v-if="showShopTabs" #right>
         <div class="balances">
           <button type="button" class="balance balance--clickable" @click="selectTab('energy')">
             <img :src="iconEnergy" alt="энергия" class="balance-icon" />
@@ -209,7 +238,7 @@ function onBuyMore() {
     </EnterItem>
 
     <div class="scroll page-enter">
-      <EnterItem :order="1" class="tabs">
+      <EnterItem v-if="showShopTabs" :order="1" class="tabs">
         <button
           v-for="tab in tabs"
           :key="tab.key"
@@ -220,7 +249,11 @@ function onBuyMore() {
         </button>
       </EnterItem>
 
-      <div v-if="activeTab === 'premium' && premiumItem" :key="activeTab" class="premium">
+      <div
+        v-if="(isPremium || activeTab === 'premium') && premiumItem"
+        :key="isPremium ? 'premium-owned' : activeTab"
+        class="premium"
+      >
         <EnterItem :order="2">
         <button
           type="button"
@@ -262,7 +295,7 @@ function onBuyMore() {
         </EnterItem>
       </div>
 
-      <div v-else :key="activeTab" class="tab-content">
+      <div v-else-if="showShopTabs" :key="activeTab" class="tab-content">
         <button
           v-if="activeTab === 'diamonds' && !isPremium"
           type="button"
@@ -349,7 +382,7 @@ function onBuyMore() {
     </div>
 
     <EnterItem v-if="!isPremium" :order="4" solo class="cta">
-      <AppButton variant="danger" :disabled="purchasing" @click="onBuyMore">
+      <AppButton variant="danger" :disabled="purchasing" @click="onCtaBuy">
         {{ purchasing ? 'Оформление…' : 'Купить' }}
       </AppButton>
     </EnterItem>

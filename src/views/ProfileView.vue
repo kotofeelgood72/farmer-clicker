@@ -4,16 +4,16 @@ import PageHeader from '@/components/PageHeader.vue'
 import AppButton from '@/components/AppButton.vue'
 import BottomNav from '@/components/BottomNav.vue'
 import AvatarPicker from '@/components/AvatarPicker.vue'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import EnterItem from '@/components/EnterItem.vue'
-import { canShowAds, showRewarded } from '@/ads/ads'
 import { useAppNavigation } from '@/composables/useAppNavigation'
-import { requestGameReviewNow } from '@/composables/useGameReview'
 import { useUserAvatar } from '@/composables/useUserAvatar'
 import { useChatHistory } from '@/composables/useChatHistory'
 import { resetAllGameProgress } from '@/composables/useGameReset'
 import { useAchievements } from '@/composables/useAchievements'
 import { usePlayerStats } from '@/composables/usePlayerStats'
 import { usePremium } from '@/composables/usePremium'
+import { usePremiumAccess } from '@/composables/usePremiumAccess'
 
 import IconPen from '~icons/solar/pen-2-bold'
 import IconChart from '~icons/solar/chart-2-bold'
@@ -24,7 +24,6 @@ import IconUsersTwo from '~icons/solar/users-group-two-rounded-bold'
 import IconHeart from '~icons/solar/heart-bold'
 import IconChat from '~icons/solar/chat-round-dots-bold'
 import IconRanking from '~icons/solar/ranking-bold'
-import IconShield from '~icons/solar/shield-bold'
 import IconLock from '~icons/solar/lock-bold'
 
 interface Stat {
@@ -40,9 +39,9 @@ const { unreadTotal } = useChatHistory()
 const { stats: playerStats, refresh: refreshStats } = usePlayerStats()
 const { profilePreview, refreshAchievements } = useAchievements()
 const { isPremium } = usePremium()
-const adsEnabled = canShowAds()
+const { openPremiumShop } = usePremiumAccess()
 const showAvatarPicker = ref(false)
-const ratingBusy = ref(false)
+const showResetConfirm = ref(false)
 
 function refreshProfile() {
   refreshStats()
@@ -64,6 +63,10 @@ const stats = computed<Stat[]>(() => [
 ])
 
 function onEditAvatar() {
+  if (!isPremium.value) {
+    openPremiumShop()
+    return
+  }
   showAvatarPicker.value = true
 }
 
@@ -76,18 +79,8 @@ function onSelectAvatar(url: string) {
     onCloseAvatarPicker()
     return
   }
-
-  const apply = () => {
-    setAvatar(url)
-    onCloseAvatarPicker()
-  }
-
-  if (!adsEnabled) {
-    apply()
-    return
-  }
-
-  showRewarded(apply)
+  setAvatar(url)
+  onCloseAvatarPicker()
 }
 
 function onBack() {
@@ -95,16 +88,6 @@ function onBack() {
 }
 function onOpenAchievements() {
   void pushFrom('/achievements')
-}
-
-async function onRateGame() {
-  if (ratingBusy.value) return
-  ratingBusy.value = true
-  try {
-    await requestGameReviewNow()
-  } finally {
-    ratingBusy.value = false
-  }
 }
 
 function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
@@ -116,10 +99,10 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
 }
 
 function onResetProgress() {
-  const ok = window.confirm(
-    'Сбросить весь прогресс?\n\nЧаты, диалоги, свидания, статистика, энергия и алмазы вернутся к начальным значениям.',
-  )
-  if (!ok) return
+  showResetConfirm.value = true
+}
+
+function onConfirmReset() {
   resetAllGameProgress()
   refreshProfile()
 }
@@ -134,7 +117,12 @@ function onResetProgress() {
     <div class="scroll page-enter">
       <!-- cover + avatar -->
       <EnterItem :order="1" tag="section" class="cover">
-        <button type="button" class="avatar-wrap" aria-label="изменить аватар" @click="onEditAvatar">
+        <button
+          type="button"
+          class="avatar-wrap"
+          :aria-label="isPremium ? 'Изменить аватар' : 'Смена аватара — Премиум'"
+          @click="onEditAvatar"
+        >
           <span class="avatar">
             <img
               v-if="selectedAvatar"
@@ -144,8 +132,13 @@ function onResetProgress() {
             />
             <span v-else class="avatar-letter">{{ user.nickname.charAt(0) }}</span>
           </span>
-          <span class="edit-btn" aria-hidden="true">
-            <IconPen class="edit-icon" />
+          <span
+            class="edit-btn"
+            :class="{ 'edit-btn--premium': !isPremium }"
+            aria-hidden="true"
+          >
+            <IconCrown v-if="!isPremium" class="edit-icon" />
+            <IconPen v-else class="edit-icon" />
           </span>
         </button>
       </EnterItem>
@@ -211,13 +204,7 @@ function onResetProgress() {
         </div>
       </EnterItem>
 
-      <EnterItem :order="5" tag="section" class="rate-section">
-        <AppButton variant="secondary" :disabled="ratingBusy" @click="onRateGame">
-          Оценить игру
-        </AppButton>
-      </EnterItem>
-
-      <EnterItem :order="6" tag="section" class="reset-section">
+      <EnterItem :order="5" tag="section" class="reset-section">
         <AppButton variant="danger" @click="onResetProgress">Сброс</AppButton>
       </EnterItem>
     </div>
@@ -230,12 +217,22 @@ function onResetProgress() {
     />
 
     <AvatarPicker
+      v-if="isPremium"
       :show="showAvatarPicker"
       :avatars="avatars"
       :selected="selectedAvatar"
-      :ad-hint="adsEnabled"
       @close="onCloseAvatarPicker"
       @select="onSelectAvatar"
+    />
+
+    <ConfirmDialog
+      v-model:open="showResetConfirm"
+      title="Сбросить весь прогресс?"
+      message="Чаты, диалоги, свидания, статистика, энергия и алмазы вернутся к начальным значениям."
+      confirm-label="Сбросить"
+      cancel-label="Отмена"
+      confirm-variant="danger"
+      @confirm="onConfirmReset"
     />
   </div>
 </template>
@@ -279,6 +276,8 @@ function onResetProgress() {
   border-bottom: none;
   position: relative;
   z-index: 1;
+  padding-top: 48px;
+  padding-bottom: 8px;
 }
 
 .scroll {
@@ -295,10 +294,6 @@ function onResetProgress() {
   flex-shrink: 0;
 }
 
-.rate-section {
-  margin: 4px 0 0;
-}
-
 .reset-section {
   margin: 8px 0 8px;
 }
@@ -308,7 +303,7 @@ function onResetProgress() {
 .cover {
   position: relative;
   z-index: 3;
-  height: 140px;
+  height: 128px;
 }
 
 .avatar-wrap {
@@ -372,13 +367,17 @@ function onResetProgress() {
   pointer-events: none;
 }
 
+.edit-btn--premium {
+  background: linear-gradient(135deg, #ffb83d 0%, #ff8c42 100%);
+}
+
 .edit-icon { width: 14px; height: 14px; }
 
 /* --- identity --- */
 .identity {
   position: relative;
   z-index: 1;
-  padding: 48px 16px 12px;
+  padding: 42px 16px 12px;
   text-align: center;
 }
 

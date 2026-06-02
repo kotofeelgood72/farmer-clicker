@@ -1,13 +1,19 @@
 <script setup lang="ts">
+import { toRefs } from 'vue'
 import statEnergy from '@/assets/ui/energy.png'
 import statStone from '@/assets/ui/stone.png'
+import { usePremiumResourceLabel } from '@/composables/usePremiumResourceLabel'
 import { useUserAvatar } from '@/composables/useUserAvatar'
 
-defineProps<{
+const props = defineProps<{
   nickname: string
   energy: number
   diamonds: number
 }>()
+
+const { energy, diamonds } = toRefs(props)
+const energyLabel = usePremiumResourceLabel(energy)
+const diamondsLabel = usePremiumResourceLabel(diamonds)
 
 defineEmits<{
   (e: 'profile'): void
@@ -38,11 +44,11 @@ const { selectedAvatar } = useUserAvatar()
     <div class="stats">
       <button type="button" class="stat stat--clickable" @click="$emit('shop-energy')">
         <img :src="statEnergy" alt="энергия" class="stat-img" />
-        <span>{{ energy }}</span>
+        <span class="stat-value">{{ energyLabel }}</span>
       </button>
       <button type="button" class="stat stat--clickable" @click="$emit('shop')">
         <img :src="statStone" alt="алмазы" class="stat-img" />
-        <span>{{ diamonds }}</span>
+        <span class="stat-value">{{ diamondsLabel }}</span>
       </button>
     </div>
   </header>
@@ -140,5 +146,10 @@ const { selectedAvatar } = useUserAvatar()
   height: 30px;
   object-fit: contain;
   -webkit-user-drag: none;
+}
+
+.stat-value {
+  min-width: 1ch;
+  line-height: 1;
 }
 </style>

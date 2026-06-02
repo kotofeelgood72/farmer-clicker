@@ -11,11 +11,16 @@ import IconFire from '~icons/solar/fire-bold'
 import IconAdPlay from '~icons/solar/play-circle-bold'
 import heartImg from '@/assets/ui/hearth.png'
 import energyImg from '@/assets/ui/energy.png'
-import { GIRLS, type GirlProfile } from '@/data/girls'
+import cardsIcon from '@/assets/ui/cards.png'
+import type { GirlProfile } from '@/data/girls'
 import { useChatHistory } from '@/composables/useChatHistory'
+import { markSwipePassed } from '@/composables/useSwipePasses'
+import { useSwipeDeck } from '@/composables/useSwipeDeck'
+import AppButton from '@/components/AppButton.vue'
 import { REWARDED_ENERGY_AMOUNT } from '@/constants/game'
 import { SWIPE_ENERGY_COST, useEnergy } from '@/composables/useEnergy'
 import { usePremium } from '@/composables/usePremium'
+import { usePremiumResourceLabel } from '@/composables/usePremiumResourceLabel'
 import { usePremiumAccess } from '@/composables/usePremiumAccess'
 import { isPremiumGirlId } from '@/constants/premiumContent'
 import { useRewardedEnergy } from '@/composables/useRewardedEnergy'
@@ -26,7 +31,15 @@ import { usePlayerStats } from '@/composables/usePlayerStats'
 import EnterItem from '@/components/EnterItem.vue'
 
 const { pushFrom, back, router } = useAppNavigation()
-const { touchChat, hasActiveChat } = useChatHistory()
+const { touchChat } = useChatHistory()
+const {
+  swipeDeck,
+  hasSwipeCards,
+  allGirlsInChats,
+  canUnlockProfileViaAd,
+  unlockingAd: unlockingProfileAd,
+  watchAdForExtraProfile,
+} = useSwipeDeck()
 const { energy, canSpend, spend } = useEnergy()
 const { isPremium } = usePremium()
 const { canAccessGirl, openPremiumShop } = usePremiumAccess()
@@ -34,10 +47,15 @@ const { watchAdForEnergy, watching: watchingAd } = useRewardedEnergy()
 const { recordProfileSeen } = usePlayerStats()
 const { trackSwipeEnergy, trackMatch } = useAchievements()
 
-const swipeDeck = computed(() => GIRLS.filter((g) => !hasActiveChat(g.id)))
-const hasSwipeCards = computed(() => swipeDeck.value.length > 0)
-
-const index = ref(0)
+const emptyHint = computed(() => {
+  if (allGirlsInChats.value) {
+    return 'Загляните в чаты — там вас ждут!'
+  }
+  if (canUnlockProfileViaAd.value) {
+    return ''
+  }
+  return ''
+})
 const total = ref(20) // total session swipes
 
 const currentCard = ref<HTMLDivElement | null>(null)
@@ -46,23 +64,20 @@ const dragX = ref(0)
 const dragging = ref(false)
 const animating = ref(false)
 
-const current = computed(() => {
-  const deck = swipeDeck.value
-  if (!deck.length) return undefined
-  return deck[index.value % deck.length]
-})
+/** Всегда первая и вторая карточки колоды — без сдвигающегося индекса после пропуска. */
+const current = computed(() => swipeDeck.value[0])
 
-const next = computed(() => {
-  const deck = swipeDeck.value
-  if (deck.length < 2) return undefined
-  return deck[(index.value + 1) % deck.length]
-})
+const next = computed(() => swipeDeck.value[1])
 
 const matchVisible = ref(false)
 const matchedCharacter = ref<GirlProfile | null>(null)
 
-function isCardPremiumLocked(girl: GirlProfile): boolean {
-  return isPremiumGirlId(girl.id) && !canAccessGirl(girl.id)
+function isPremiumExclusiveGirl(girl: GirlProfile): boolean {
+  return isPremiumGirlId(girl.id)
+}
+
+function isPremiumGirlLocked(girl: GirlProfile): boolean {
+  return isPremiumExclusiveGirl(girl) && !canAccessGirl(girl.id)
 }
 
 function cardImageStyle(girl: GirlProfile) {
@@ -96,7 +111,7 @@ const showEnergyCta = computed(
     !matchVisible.value,
 )
 const showEnergyBoost = computed(() => isPremium.value || energy.value > 0)
-const energyBadgeLabel = computed(() => (isPremium.value ? '∞' : String(energy.value)))
+const energyBadgeLabel = usePremiumResourceLabel(energy)
 
 let startX = 0
 let startY = 0
@@ -190,16 +205,27 @@ function flyOff(direction: 'left' | 'right') {
   }
 }
 
+function resetCurrentCardTransform() {
+  if (!currentCard.value) return
+  gsap.set(currentCard.value, { x: 0, y: 0, rotation: 0, scale: 1, opacity: 1 })
+}
+
 function advance(direction: 'left' | 'right') {
   const liked = current.value
   recordProfileSeen()
-  index.value++
   dragX.value = 0
   animating.value = false
   // eslint-disable-next-line no-console
   console.info('[swipe]', direction === 'right' ? 'like' : 'skip', liked?.name)
+
+  if (direction === 'left' && liked) {
+    markSwipePassed(liked.id)
+    return
+  }
+
   if (direction === 'right' && liked) {
     if (!canAccessGirl(liked.id)) {
+      resetCurrentCardTransform()
       openPremiumShop()
       return
     }
@@ -208,6 +234,16 @@ function advance(direction: 'left' | 'right') {
     matchedCharacter.value = liked
     matchVisible.value = true
   }
+}
+
+function onUnlockProfileViaAd() {
+  watchAdForExtraProfile(() => {
+    dragX.value = 0
+  })
+}
+
+function onGoToChats() {
+  void router.push('/chats')
 }
 
 function onLike() {
@@ -268,24 +304,62 @@ onUnmounted(() => {
     </EnterItem>
 
     <EnterItem v-if="!hasSwipeCards" :order="1" solo class="swipe-empty page-enter">
-      <p class="swipe-empty__title">Новых анкет пока нет</p>
-      <p class="swipe-empty__hint">Продолжите общение в чатах или загляните позже</p>
-      <button type="button" class="swipe-empty__btn" @click="onBack">На главную</button>
+      <div class="swipe-empty__card">
+        <span class="swipe-empty__glow" aria-hidden="true" />
+        <span class="swipe-empty__icon-wrap">
+          <img :src="cardsIcon" alt="" class="swipe-empty__icon" />
+        </span>
+        <h2 class="swipe-empty__title">
+          {{ allGirlsInChats ? 'Вы знакомы со всеми' : 'Новых анкет пока нет' }}
+        </h2>
+        <p v-if="emptyHint" class="swipe-empty__hint">{{ emptyHint }}</p>
+
+        <div class="swipe-empty__actions">
+          <button
+            v-if="canUnlockProfileViaAd"
+            type="button"
+            class="swipe-empty__ad-btn"
+            :disabled="unlockingProfileAd"
+            @click="onUnlockProfileViaAd"
+          >
+            <span class="swipe-empty__ad-icon" aria-hidden="true">
+              <IconAdPlay />
+            </span>
+            <span class="swipe-empty__ad-text">
+              <span class="swipe-empty__ad-title">Смотреть рекламу</span>
+              <span class="swipe-empty__ad-sub">вернуть все пропущенные</span>
+            </span>
+          </button>
+
+          <AppButton
+            v-if="allGirlsInChats"
+            variant="primary"
+            class="swipe-empty__cta"
+            @click="onGoToChats"
+          >
+            Перейти в чаты
+          </AppButton>
+          <AppButton
+            v-else
+            variant="secondary"
+            class="swipe-empty__cta"
+            @click="onBack"
+          >
+            На главную
+          </AppButton>
+        </div>
+      </div>
     </EnterItem>
 
     <!-- card stack -->
     <div v-else class="stack" :class="{ 'stack--locked': matchVisible }">
       <!-- next card (behind) -->
-      <div v-if="next" ref="nextCard" class="card card--next" :key="`next-${next.id}-${index}`">
+      <div v-if="next" ref="nextCard" class="card card--next" :key="`next-${next.id}`">
         <div
           class="card-image"
-          :class="{ 'card-image--premium': isCardPremiumLocked(next) }"
+          :class="{ 'card-image--premium': isPremiumExclusiveGirl(next) }"
           :style="cardImageStyle(next)"
         >
-          <span v-if="isCardPremiumLocked(next)" class="premium-pill">
-            <IconCrown class="premium-pill__icon" />
-            Премиум
-          </span>
           <div class="rating-pill">
             <IconFire v-for="n in next.rating" :key="n" class="rating-fire" />
           </div>
@@ -294,6 +368,14 @@ onUnmounted(() => {
             <div class="info-head">
               <div class="card-name">
                 {{ next.name }}, {{ next.age }}
+                <span
+                  v-if="isPremiumExclusiveGirl(next)"
+                  class="name-premium-badge"
+                  :class="{ 'name-premium-badge--locked': isPremiumGirlLocked(next) }"
+                >
+                  <IconCrown class="name-premium-badge__icon" />
+                  Премиум
+                </span>
                 <IconVerified class="verified" />
               </div>
             </div>
@@ -312,9 +394,9 @@ onUnmounted(() => {
         class="card card--current"
         :class="{
           'card--no-energy': showEnergyCta,
-          'card--premium': current && isCardPremiumLocked(current),
+          'card--premium': current && isPremiumExclusiveGirl(current),
         }"
-        :key="`current-${current.id}-${index}`"
+        :key="`current-${current.id}`"
         @pointerdown="onPointerDown"
         @pointermove="onPointerMove"
         @pointerup="onPointerUp"
@@ -322,13 +404,9 @@ onUnmounted(() => {
       >
         <div
           class="card-image"
-          :class="{ 'card-image--premium': isCardPremiumLocked(current) }"
+          :class="{ 'card-image--premium': isPremiumExclusiveGirl(current) }"
           :style="cardImageStyle(current)"
         >
-          <span v-if="isCardPremiumLocked(current)" class="premium-pill">
-            <IconCrown class="premium-pill__icon" />
-            Премиум
-          </span>
           <div class="rating-pill">
             <IconFire v-for="n in current.rating" :key="n" class="rating-fire" />
           </div>
@@ -350,6 +428,14 @@ onUnmounted(() => {
             <div class="info-head">
               <div class="card-name">
                 {{ current.name }}, {{ current.age }}
+                <span
+                  v-if="isPremiumExclusiveGirl(current)"
+                  class="name-premium-badge"
+                  :class="{ 'name-premium-badge--locked': isPremiumGirlLocked(current) }"
+                >
+                  <IconCrown class="name-premium-badge__icon" />
+                  Премиум
+                </span>
                 <IconVerified class="verified" />
               </div>
             </div>
@@ -462,37 +548,147 @@ onUnmounted(() => {
 .swipe-empty {
   flex: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 24px 32px;
+  padding: 16px 20px 24px;
+}
+
+.swipe-empty__card {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  padding: 28px 22px 22px;
+  border-radius: 24px;
   text-align: center;
+  background: linear-gradient(165deg, #fff 0%, #faf0ff 45%, #fff5f9 100%);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.swipe-empty__glow {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  width: 180px;
+  height: 180px;
+  margin-left: -90px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(177, 75, 255, 0.28) 0%,
+    rgba(255, 77, 142, 0.08) 55%,
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+.swipe-empty__icon-wrap {
+  position: relative;
+  z-index: 1;
+  width: 88px;
+  height: 88px;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 24px;
+  background: linear-gradient(145deg, #f3e8ff 0%, #ffe8f2 100%);
+  box-shadow: 0 8px 24px rgba(177, 75, 255, 0.2);
+}
+
+.swipe-empty__icon {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 12px rgba(177, 75, 255, 0.25));
 }
 
 .swipe-empty__title {
+  position: relative;
+  z-index: 1;
   margin: 0 0 8px;
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 20px;
+  font-weight: 800;
   color: var(--text);
 }
 
 .swipe-empty__hint {
+  position: relative;
+  z-index: 1;
   margin: 0 0 20px;
   font-size: 14px;
-  line-height: 1.4;
+  line-height: 1.45;
   color: var(--text-muted);
 }
 
-.swipe-empty__btn {
-  padding: 12px 24px;
-  border-radius: 999px;
+.swipe-empty__actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.swipe-empty__ad-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
   border: none;
-  background: var(--gradient-brand-violet);
+  border-radius: 16px;
+  background: linear-gradient(135deg, #7c3aed 0%, #db2777 100%);
   color: #fff;
   font-family: inherit;
-  font-size: 14px;
-  font-weight: 700;
+  text-align: left;
   cursor: pointer;
+  box-shadow: 0 6px 20px rgba(177, 75, 255, 0.35);
+  transition: transform 0.12s ease, opacity 0.15s ease;
+}
+
+.swipe-empty__ad-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.swipe-empty__ad-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.swipe-empty__ad-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 22px;
+}
+
+.swipe-empty__ad-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.swipe-empty__ad-title {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.swipe-empty__ad-sub {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.swipe-empty__cta {
+  width: 100%;
 }
 
 .swipe > .stack,
@@ -656,27 +852,38 @@ onUnmounted(() => {
   }
 }
 
-.premium-pill {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 3;
+.name-premium-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 5px 10px;
+  gap: 3px;
+  padding: 3px 8px;
   border-radius: 999px;
   background: linear-gradient(135deg, #b14bff 0%, #ff4d8e 100%);
   color: #fff;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.2px;
-  box-shadow: 0 2px 12px rgba(177, 75, 255, 0.45);
+  box-shadow: 0 2px 10px rgba(177, 75, 255, 0.4);
+  flex-shrink: 0;
 }
 
-.premium-pill__icon {
-  width: 14px;
-  height: 14px;
+.name-premium-badge--locked {
+  animation: premiumBadgePulse 2s ease-in-out infinite;
+}
+
+@keyframes premiumBadgePulse {
+  0%,
+  100% {
+    box-shadow: 0 2px 10px rgba(177, 75, 255, 0.4);
+  }
+  50% {
+    box-shadow: 0 2px 16px rgba(255, 77, 142, 0.65);
+  }
+}
+
+.name-premium-badge__icon {
+  width: 12px;
+  height: 12px;
 }
 
 .card-image--premium::after {
@@ -759,7 +966,8 @@ onUnmounted(() => {
 }
 
 .card-name {
-  display: inline-flex;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   font-size: 20px;

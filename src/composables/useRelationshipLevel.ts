@@ -2,14 +2,15 @@ import { getGirlDialog } from '@/data/dialogs'
 import { getMeetingDialog } from '@/data/meetings'
 import { loadDialogState, isDialogCompleted } from '@/composables/useDialogChat'
 import { girlChatStorageKey, isGirlChatCompleted } from '@/composables/useGirlChat'
-import { meetingStorageKey } from '@/composables/useMeetingChat'
+import {
+  MEETING_LOCATION_IDS,
+  meetingStorageKey,
+} from '@/composables/useMeetingChat'
 
 /** Очков прогресса на один уровень (переписка или свидание). */
 export const REL_LEVEL_MAX = 500
 
 export const REL_HEARTS_COUNT = 5
-
-const MEETING_LOCATION_IDS = [1, 2, 3, 4, 5, 6] as const
 
 export interface LevelProgress {
   current: number

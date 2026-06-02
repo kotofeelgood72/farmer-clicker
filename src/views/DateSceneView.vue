@@ -12,13 +12,22 @@ import { fireConfetti } from '@/composables/useConfetti'
 import { useAppNavigation } from '@/composables/useAppNavigation'
 import { maybeInterstitialOnReply, runAfterInterstitial } from '@/composables/useAdPlacements'
 import { useDiamonds } from '@/composables/useDiamonds'
-import { useMeetingChat } from '@/composables/useMeetingChat'
+import { usePremium } from '@/composables/usePremium'
+import {
+  findStartedMeetingLocationForGirl,
+  useMeetingChat,
+} from '@/composables/useMeetingChat'
 import EnterItem from '@/components/EnterItem.vue'
 
 const route = useRoute()
 const { pushFrom, back } = useAppNavigation()
 const { canStartDate, openPremiumShop } = usePremiumAccess()
 const { canSpend, spend } = useDiamonds()
+const { isPremium } = usePremium()
+
+function replyDisplayCost(cost: number): number {
+  return isPremium.value ? 0 : cost
+}
 const {
   trackDiamondsSpent,
   trackPlayerMessage,
@@ -40,8 +49,16 @@ const girlImage = computed(() => daily.value?.girlImage)
 const girlColor = computed(() => daily.value?.girlColor ?? '#5a5a6a')
 const locationImage = computed(() => daily.value?.locationImage)
 
-const locationId = computed(() => daily.value?.locationId ?? 0)
 const girlId = computed(() => daily.value?.girlId ?? 0)
+
+const locationId = computed(() => {
+  const g = girlId.value
+  if (g > 0) {
+    const started = findStartedMeetingLocationForGirl(g)
+    if (started != null) return started
+  }
+  return daily.value?.locationId ?? 0
+})
 
 watch(
   [daily, girlId, locationId],
@@ -120,7 +137,9 @@ function onPick(reply: { id: number; text: string; cost: number }) {
     void pushFrom('/shop')
     return
   }
-  trackDiamondsSpent(reply.cost)
+  if (!isPremium.value && reply.cost > 0) {
+    trackDiamondsSpent(reply.cost)
+  }
   trackPlayerMessage()
   maybeInterstitialOnReply(() => pickReply(reply))
 }
@@ -192,7 +211,7 @@ function onPick(reply: { id: number; text: string; cost: number }) {
         v-for="r in replies"
         :key="r.id"
         :text="r.text"
-        :cost="r.cost"
+        :cost="replyDisplayCost(r.cost)"
         @pick="onPick(r)"
       />
     </footer>
