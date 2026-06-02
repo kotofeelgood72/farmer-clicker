@@ -17,7 +17,7 @@ import {
   type DailyDate,
 } from '@/data/dates'
 import { useAppNavigation } from '@/composables/useAppNavigation'
-import { runAfterInterstitial } from '@/composables/useAdPlacements'
+import { runDateStartWithAd } from '@/composables/useAdPlacements'
 import { useChatHistory } from '@/composables/useChatHistory'
 const { unreadTotal } = useChatHistory()
 
@@ -81,7 +81,7 @@ function onOpen(item: DailyDate) {
     openPremiumShop()
     return
   }
-  runAfterInterstitial(() => void pushFrom(`/date/${item.id}`), 'date_start')
+  runDateStartWithAd(() => void pushFrom(`/date/${item.id}`))
 }
 
 function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {

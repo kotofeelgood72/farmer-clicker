@@ -36,6 +36,18 @@ export function runMatchMessageWithAd(action: () => void): void {
   })
 }
 
+/** Реклама при старте свидания из списка — без кулдаунов. */
+export function runDateStartWithAd(action: () => void): void {
+  if (!canShowAds()) {
+    action()
+    return
+  }
+  showInterstitialIgnoringCooldown('date_start', {
+    onClose: action,
+    onBlocked: action,
+  })
+}
+
 /** Каждые 3 смахивания влево/вправо — interstitial, затем продолжение. */
 export function afterSwipeCompleted(action: () => void): void {
   swipeCountSinceAd += 1
