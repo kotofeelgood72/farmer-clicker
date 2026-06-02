@@ -25,7 +25,7 @@ import { usePremiumAccess } from '@/composables/usePremiumAccess'
 import { isPremiumGirlId } from '@/constants/premiumContent'
 import { useRewardedEnergy } from '@/composables/useRewardedEnergy'
 import { useAppNavigation } from '@/composables/useAppNavigation'
-import { afterSwipeCompleted, runAfterInterstitial } from '@/composables/useAdPlacements'
+import { afterSwipeCompleted, runMatchMessageWithAd } from '@/composables/useAdPlacements'
 import { useAchievements } from '@/composables/useAchievements'
 import { usePlayerStats } from '@/composables/usePlayerStats'
 import EnterItem from '@/components/EnterItem.vue'
@@ -284,10 +284,10 @@ function onBack() {
 
 function onMatchMessage() {
   const id = matchedCharacter.value?.id
-  runAfterInterstitial(() => {
+  runMatchMessageWithAd(() => {
     matchVisible.value = false
     if (id != null) void pushFrom(`/chat/${id}`)
-  }, 'match_message')
+  })
 }
 
 function onMatchContinue() {

@@ -1,4 +1,8 @@
-import { canShowAds, showInterstitial } from '@/ads/ads'
+import {
+  canShowAds,
+  showInterstitial,
+  showInterstitialIgnoringCooldown,
+} from '@/ads/ads'
 import { scheduleGameReview } from '@/composables/useGameReview'
 
 /** Вероятность interstitial при отправке ответа в чате/свидании. */
@@ -18,6 +22,18 @@ export interface RunAfterInterstitialOptions {
 /** Реклама перед открытием чата (список, главная, профиль). */
 export function openChatWithAd(action: () => void): void {
   runAfterInterstitial(action, 'chat_open')
+}
+
+/** Реклама при «Написать ей» после мэтча — без кулдаунов. */
+export function runMatchMessageWithAd(action: () => void): void {
+  if (!canShowAds()) {
+    action()
+    return
+  }
+  showInterstitialIgnoringCooldown('match_message', {
+    onClose: action,
+    onBlocked: action,
+  })
 }
 
 /** Каждые 3 смахивания влево/вправо — interstitial, затем продолжение. */

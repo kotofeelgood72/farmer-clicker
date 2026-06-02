@@ -253,7 +253,36 @@ export function showInterstitial(
   }
 
   if (!invokeFullscreenAdv(_reason, finish)) {
-    finish()
+    blocked()
+    return false
+  }
+  return true
+}
+
+/**
+ * Interstitial без кулдаунов (только ads off / уже идёт реклама).
+ * Для «Написать ей» после мэтча.
+ */
+export function showInterstitialIgnoringCooldown(
+  _reason?: string,
+  opts?: { onClose?: () => void; onBlocked?: () => void },
+): boolean {
+  const finish = () => opts?.onClose?.()
+  const blocked = () => (opts?.onBlocked ?? finish)()
+
+  if (!shouldShowAds()) {
+    logInterstitialBlocked(_reason, 'ads disabled')
+    blocked()
+    return false
+  }
+  if (isAdPlaying) {
+    logInterstitialBlocked(_reason, 'ad already playing')
+    blocked()
+    return false
+  }
+
+  if (!invokeFullscreenAdv(_reason, finish)) {
+    blocked()
     return false
   }
   return true
