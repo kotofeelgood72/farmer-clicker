@@ -29,7 +29,6 @@ export const REVIEW_AFTER_AD_MS = 5_000
 let lastInterstitialAt = 0
 let lastAnyAdAt = 0
 let isAdPlaying = false
-let startupAdShown = false
 
 function emitPause() {
   isAdPlaying = true
@@ -68,12 +67,32 @@ export function canShowInterstitial(): boolean {
   return true
 }
 
-function playFullscreenAdv(reason: string | undefined, finish: () => void): boolean {
+/**
+ * Try to show a fullscreen interstitial. No-op if cooldown is not satisfied
+ * or the SDK is unavailable. Always safe to call.
+ */
+/**
+ * Полноэкранная реклама по клику. Если показ невозможен — сразу вызывает onClose.
+ */
+export function showInterstitial(
+  _reason?: string,
+  opts?: { onClose?: () => void },
+): boolean {
+  const finish = () => opts?.onClose?.()
+
+  if (!canShowInterstitial()) {
+    finish()
+    return false
+  }
+
+  lastInterstitialAt = Date.now()
+  lastAnyAdAt = lastInterstitialAt
+
   const ysdk = getYsdk()
   if (!ysdk) {
     if (import.meta.env.DEV) {
       // eslint-disable-next-line no-console
-      console.info('[ads] interstitial (dev stub)', reason)
+      console.info('[ads] interstitial (dev stub)', _reason)
     }
     finish()
     return true
@@ -99,53 +118,6 @@ function playFullscreenAdv(reason: string | undefined, finish: () => void): bool
     finish()
   }
   return true
-}
-
-/**
- * Полноэкранная реклама при первом входе в игру (один раз за сессию).
- * Не учитывает FIRST_AD_GAP — стартовый показ разрешён платформой.
- */
-export function showStartupInterstitial(opts?: { onClose?: () => void }): boolean {
-  const finish = () => opts?.onClose?.()
-
-  if (startupAdShown) {
-    finish()
-    return false
-  }
-  startupAdShown = true
-
-  if (!shouldShowAds() || isAdPlaying) {
-    finish()
-    return false
-  }
-
-  lastInterstitialAt = Date.now()
-  lastAnyAdAt = lastInterstitialAt
-  return playFullscreenAdv('startup', finish)
-}
-
-/** Сброс флага стартовой рекламы (отладка / сброс прогресса). */
-export function resetStartupAdState(): void {
-  startupAdShown = false
-}
-
-/**
- * Полноэкранная реклама по клику. Если показ невозможен — сразу вызывает onClose.
- */
-export function showInterstitial(
-  _reason?: string,
-  opts?: { onClose?: () => void },
-): boolean {
-  const finish = () => opts?.onClose?.()
-
-  if (!canShowInterstitial()) {
-    finish()
-    return false
-  }
-
-  lastInterstitialAt = Date.now()
-  lastAnyAdAt = lastInterstitialAt
-  return playFullscreenAdv(_reason, finish)
 }
 
 /**
