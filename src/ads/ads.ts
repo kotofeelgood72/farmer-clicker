@@ -15,6 +15,7 @@ export function canShowAds(): boolean {
   return !adsDisabled
 }
 
+/** Премиум не отключает interstitial/rewarded — только setAdsDisabled (отладка). */
 function shouldShowAds(): boolean {
   return canShowAds()
 }
@@ -77,36 +78,46 @@ function canShowStartupInterstitial(): boolean {
   return true
 }
 
-function playFullscreenAdv(reason: string | undefined, finish: () => void): boolean {
-  lastInterstitialAt = Date.now()
-  lastAnyAdAt = lastInterstitialAt
-
+function invokeFullscreenAdv(reason: string | undefined, finish: () => void): boolean {
   const ysdk = getYsdk()
-  if (!ysdk) {
+  if (!ysdk?.adv) {
     if (import.meta.env.DEV) {
       // eslint-disable-next-line no-console
       console.info('[ads] interstitial (dev stub)', reason)
+      lastInterstitialAt = Date.now()
+      lastAnyAdAt = lastInterstitialAt
+      finish()
+      return true
     }
-    finish()
-    return true
+    return false
   }
+
+  lastInterstitialAt = Date.now()
+  lastAnyAdAt = lastInterstitialAt
 
   emitPause()
   try {
     ysdk.adv.showFullscreenAdv({
       callbacks: {
+        onOpen: () => {
+          if (import.meta.env.DEV) {
+            // eslint-disable-next-line no-console
+            console.info('[ads] interstitial opened', reason)
+          }
+        },
         onClose: () => {
           emitResume()
           finish()
         },
-        onError: () => {
+        onError: (err) => {
+          console.warn('[ads] interstitial error', reason, err)
           emitResume()
           finish()
         },
       },
     })
   } catch (err) {
-    console.warn('[ads] interstitial failed', err)
+    console.warn('[ads] interstitial failed', reason, err)
     emitResume()
     finish()
   }
@@ -115,22 +126,68 @@ function playFullscreenAdv(reason: string | undefined, finish: () => void): bool
 
 /**
  * Полноэкранная реклама при запуске (один раз за сессию, без FIRST_AD_GAP).
+ * @returns false если SDK ещё не готов — можно повторить через scheduleStartupInterstitial.
  */
 export function showStartupInterstitial(opts?: { onClose?: () => void }): boolean {
-  const finish = () => opts?.onClose?.()
+  if (startupAdShown) return false
+  if (!canShowStartupInterstitial()) return false
+
+  const onDone = () => opts?.onClose?.()
+  if (!invokeFullscreenAdv('startup', onDone)) return false
+
+  startupAdShown = true
+  return true
+}
+
+const STARTUP_AD_RETRY_MS = 250
+const STARTUP_AD_MAX_RETRIES = 24
+
+let startupScheduleActive = false
+let pendingStartupClose: (() => void) | null = null
+
+/** Повторяет показ стартовой рекламы, пока не готов ysdk.adv (Яндекс Игры). */
+export function scheduleStartupInterstitial(opts?: { onClose?: () => void }): void {
+  if (opts?.onClose) {
+    if (startupAdShown) {
+      opts.onClose()
+      return
+    }
+    pendingStartupClose = opts.onClose
+  }
+
+  const done = () => {
+    startupScheduleActive = false
+    const cb = pendingStartupClose
+    pendingStartupClose = null
+    cb?.()
+  }
 
   if (startupAdShown) {
-    finish()
-    return false
+    done()
+    return
   }
-  startupAdShown = true
+  if (startupScheduleActive) return
 
-  if (!canShowStartupInterstitial()) {
-    finish()
-    return false
+  startupScheduleActive = true
+  let tries = 0
+
+  const attempt = () => {
+    if (startupAdShown) {
+      done()
+      return
+    }
+    if (showStartupInterstitial({ onClose: done })) return
+
+    tries += 1
+    if (tries < STARTUP_AD_MAX_RETRIES) {
+      window.setTimeout(attempt, STARTUP_AD_RETRY_MS)
+      return
+    }
+    console.warn('[ads] startup interstitial: SDK not ready after retries')
+    done()
   }
 
-  return playFullscreenAdv('startup', finish)
+  attempt()
 }
 
 /** Полноэкранная реклама по клику. Если показ невозможен — сразу вызывает onClose. */
@@ -145,7 +202,11 @@ export function showInterstitial(
     return false
   }
 
-  return playFullscreenAdv(_reason, finish)
+  if (!invokeFullscreenAdv(_reason, finish)) {
+    finish()
+    return false
+  }
+  return true
 }
 
 /**

@@ -6,9 +6,8 @@ import { createPinia } from 'pinia'
 
 import App from './App.vue'
 import router from './router'
-import { showStartupInterstitial } from '@/ads/ads'
 import { syncPremiumFromSdk } from '@/composables/usePremium'
-import { initYandex, getYsdk, gameplayInit, gameplayPause, gameplayResume } from '@/yandex/sdk'
+import { initYandex, getYsdk, gameplayPause, gameplayResume } from '@/yandex/sdk'
 
 window.addEventListener('contextmenu', (e) => e.preventDefault())
 window.addEventListener('selectstart', (e) => e.preventDefault())
@@ -36,8 +35,6 @@ initYandex()
       } catch (err) {
         console.warn('[yandex sdk] LoadingAPI.ready() failed', err)
       }
-      gameplayInit()
-      showStartupInterstitial()
     })
   })
 

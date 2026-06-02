@@ -4,13 +4,19 @@ import AppButton from '@/components/AppButton.vue'
 import EnterItem from '@/components/EnterItem.vue'
 import mainBgUrl from '@/assets/ui/main-bg.png'
 import logoUrl from '@/assets/ui/logo.png'
-import { showStartupInterstitial } from '@/ads/ads'
+import { scheduleStartupInterstitial } from '@/ads/ads'
 import { GAME_NAME } from '@/constants/game'
+import { gameplayInit } from '@/yandex/sdk'
 
 const router = useRouter()
 
 function onStart() {
-  showStartupInterstitial({ onClose: () => void router.push('/main') })
+  scheduleStartupInterstitial({
+    onClose: () => {
+      gameplayInit()
+      void router.push('/main')
+    },
+  })
 }
 </script>
 
