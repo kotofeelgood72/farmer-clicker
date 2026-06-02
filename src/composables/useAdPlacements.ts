@@ -1,4 +1,9 @@
-import { canShowAds, runForcedInterstitialWithRetry, showInterstitial } from '@/ads/ads'
+import {
+  canShowAds,
+  resetAdPlaybackState,
+  runForcedInterstitialWithRetry,
+  showInterstitial,
+} from '@/ads/ads'
 import { scheduleGameReview } from '@/composables/useGameReview'
 
 /** Вероятность interstitial при отправке ответа в чате/свидании. */
@@ -61,7 +66,7 @@ export function runAfterInterstitial(
     finish()
     return
   }
-  showInterstitial(reason, { onClose: finish })
+  showInterstitial(reason, { onClose: finish, onBlocked: finish })
 }
 
 /** Случайная реклама при ответе (не на каждый клик). */
@@ -86,10 +91,12 @@ export function maybeInterstitialOnReply(action: () => void): void {
       lastRandomReplyAdAt = Date.now()
       action()
     },
+    onBlocked: action,
   })
 }
 
 export function resetAdPlacementsState(): void {
   lastRandomReplyAdAt = 0
   swipeCountSinceAd = 0
+  resetAdPlaybackState()
 }

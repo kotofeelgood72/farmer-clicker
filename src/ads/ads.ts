@@ -33,16 +33,58 @@ export const REVIEW_AFTER_AD_MS = 5_000
 let lastInterstitialAt = 0
 let lastAnyAdAt = 0
 let isAdPlaying = false
+let adPauseDepth = 0
 let startupAdShown = false
+let adStuckTimer: ReturnType<typeof setTimeout> | null = null
+
+/** Если SDK не вызвал onClose/onError — снимаем залипшую паузу. */
+const AD_STUCK_TIMEOUT_MS = 90_000
+
+function clearAdStuckWatchdog(): void {
+  if (adStuckTimer) {
+    clearTimeout(adStuckTimer)
+    adStuckTimer = null
+  }
+}
+
+function armAdStuckWatchdog(reason: string | undefined): void {
+  clearAdStuckWatchdog()
+  adStuckTimer = window.setTimeout(() => {
+    if (!isAdPlaying) return
+    console.warn('[ads] force release stale ad playback', reason)
+    resetAdPlaybackState()
+  }, AD_STUCK_TIMEOUT_MS)
+}
 
 function emitPause() {
   isAdPlaying = true
+  adPauseDepth++
   gameplayPause()
   window.dispatchEvent(new CustomEvent('ads:pause'))
 }
+
 function emitResume() {
+  clearAdStuckWatchdog()
+  if (adPauseDepth > 0) {
+    adPauseDepth--
+    gameplayResume()
+  }
+  if (adPauseDepth <= 0) {
+    adPauseDepth = 0
+    isAdPlaying = false
+    window.dispatchEvent(new CustomEvent('ads:resume'))
+  }
+}
+
+/** Полный сброс паузы от рекламы (все вложенные emitPause). */
+export function resetAdPlaybackState(): void {
+  clearAdStuckWatchdog()
+  while (adPauseDepth > 0) {
+    adPauseDepth--
+    gameplayResume()
+  }
+  adPauseDepth = 0
   isAdPlaying = false
-  gameplayResume()
   window.dispatchEvent(new CustomEvent('ads:resume'))
 }
 
@@ -84,15 +126,19 @@ function logInterstitialBlocked(reason: string | undefined, why: string): void {
   console.info('[ads] interstitial skipped', reason, why)
 }
 
+function ensureAdNotStuck(reason?: string): void {
+  if (isAdPlaying) {
+    console.warn('[ads] clearing stale ad state before show', reason)
+    resetAdPlaybackState()
+  }
+}
+
 export function canShowInterstitial(reason?: string): boolean {
   if (!shouldShowAds()) {
     logInterstitialBlocked(reason, 'ads disabled')
     return false
   }
-  if (isAdPlaying) {
-    logInterstitialBlocked(reason, 'ad already playing')
-    return false
-  }
+  ensureAdNotStuck(reason)
   const now = Date.now()
   if (!passesSessionFirstMinuteGate(now)) {
     logInterstitialBlocked(reason, 'first minute (no startup ad)')
@@ -111,7 +157,7 @@ export function canShowInterstitial(reason?: string): boolean {
 
 function canShowStartupInterstitial(): boolean {
   if (!shouldShowAds()) return false
-  if (isAdPlaying) return false
+  ensureAdNotStuck('startup')
   const now = Date.now()
   if (lastInterstitialAt > 0 && now - lastInterstitialAt < INTERSTITIAL_MIN_GAP) return false
   if (lastAnyAdAt > 0 && now - lastAnyAdAt < INTER_TO_REWARD_GAP) return false
@@ -121,14 +167,6 @@ function canShowStartupInterstitial(): boolean {
 function markInterstitialShown(): void {
   lastInterstitialAt = Date.now()
   lastAnyAdAt = lastInterstitialAt
-}
-
-/** Сбрасывает залипший isAdPlaying (SDK иногда не вызывает onClose). */
-function resetStaleAdState(): void {
-  if (!isAdPlaying) return
-  isAdPlaying = false
-  gameplayResume()
-  window.dispatchEvent(new CustomEvent('ads:resume'))
 }
 
 function invokeFullscreenAdv(reason: string | undefined, finish: () => void): boolean {
@@ -146,11 +184,16 @@ function invokeFullscreenAdv(reason: string | undefined, finish: () => void): bo
   }
 
   emitPause()
+  armAdStuckWatchdog(reason)
   let marked = false
   const markOnce = () => {
     if (marked) return
     marked = true
     markInterstitialShown()
+  }
+  const done = () => {
+    emitResume()
+    finish()
   }
 
   try {
@@ -161,21 +204,20 @@ function invokeFullscreenAdv(reason: string | undefined, finish: () => void): bo
           // eslint-disable-next-line no-console
           console.info('[ads] interstitial opened', reason)
         },
-        onClose: () => {
-          emitResume()
-          finish()
-        },
+        onClose: () => done(),
         onError: (err) => {
           console.warn('[ads] interstitial error', reason, err)
-          emitResume()
-          finish()
+          done()
+        },
+        onOffline: () => {
+          console.warn('[ads] interstitial offline', reason)
+          done()
         },
       },
     })
   } catch (err) {
     console.warn('[ads] interstitial failed', reason, err)
-    emitResume()
-    finish()
+    done()
     return false
   }
   return true
@@ -233,6 +275,7 @@ export function scheduleStartupInterstitial(opts?: { onClose?: () => void }): vo
       done()
       return
     }
+    resetAdPlaybackState()
     if (showStartupInterstitial({ onClose: done })) return
 
     tries += 1
@@ -284,7 +327,7 @@ export function showInterstitialIgnoringCooldown(
     return false
   }
 
-  resetStaleAdState()
+  resetAdPlaybackState()
 
   if (!invokeFullscreenAdv(_reason, finish)) {
     return false
@@ -310,6 +353,7 @@ export function runForcedInterstitialWithRetry(
 
   let tries = 0
   const attempt = () => {
+    resetAdPlaybackState()
     if (showInterstitialIgnoringCooldown(reason, opts)) return
     tries += 1
     if (tries < FORCED_AD_MAX_RETRIES) {
@@ -332,7 +376,7 @@ export function showRewarded(
   opts?: { onFinish?: () => void },
 ): boolean {
   if (!shouldShowAds()) return false
-  if (isAdPlaying) return false
+  ensureAdNotStuck('rewarded')
   lastAnyAdAt = Date.now()
 
   const ysdk = getYsdk()
@@ -348,28 +392,30 @@ export function showRewarded(
   }
 
   let granted = false
+  const finish = () => {
+    emitResume()
+    if (granted) onReward()
+    opts?.onFinish?.()
+  }
+
   emitPause()
+  armAdStuckWatchdog('rewarded')
   try {
     ysdk.adv.showRewardedVideo({
       callbacks: {
         onRewarded: () => {
           granted = true
         },
-        onClose: () => {
-          emitResume()
-          if (granted) onReward()
-          opts?.onFinish?.()
-        },
+        onClose: () => finish(),
         onError: () => {
-          emitResume()
-          opts?.onFinish?.()
+          console.warn('[ads] rewarded error')
+          finish()
         },
       },
     })
   } catch (err) {
     console.warn('[ads] rewarded failed', err)
-    emitResume()
-    opts?.onFinish?.()
+    finish()
   }
   return true
 }
