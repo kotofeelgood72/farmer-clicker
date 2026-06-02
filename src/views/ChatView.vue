@@ -17,6 +17,7 @@ import {
   useChatHistory,
 } from '@/composables/useChatHistory'
 import { useAppNavigation } from '@/composables/useAppNavigation'
+import { usePremiumAccess } from '@/composables/usePremiumAccess'
 import { maybeInterstitialOnReply, runAfterInterstitial } from '@/composables/useAdPlacements'
 import { useDiamonds } from '@/composables/useDiamonds'
 import { computeReplyCost } from '@/composables/useDialogChat'
@@ -45,6 +46,7 @@ interface FallbackReply {
 
 const route = useRoute()
 const { pushFrom, back } = useAppNavigation()
+const { canAccessGirl, openPremiumShop } = usePremiumAccess()
 const { touchChat, markChatRead } = useChatHistory()
 const { diamonds, canSpend, spend } = useDiamonds()
 const {
@@ -60,6 +62,14 @@ const girlId = computed(() => {
 })
 
 const girl = computed(() => GIRLS.find((g) => g.id === girlId.value) ?? GIRLS[0]!)
+
+watch(
+  girlId,
+  (id) => {
+    if (!canAccessGirl(id)) openPremiumShop()
+  },
+  { immediate: true },
+)
 
 const hasDialog = computed(() => hasGirlDialog(girlId.value))
 const dialogChat = useGirlChat(girlId)

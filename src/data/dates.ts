@@ -1,6 +1,8 @@
 import { GIRLS, getGirlPortraitImage, type GirlProfile } from '@/data/girls'
 import { isGirlChatCompleted } from '@/composables/useGirlChat'
 import { isMeetingCompleted, isMeetingStarted } from '@/composables/useMeetingChat'
+import { isPremiumOwned } from '@/composables/usePremium'
+import { dateNeedsPremium } from '@/constants/premiumContent'
 import { hasMeetingDialog } from '@/data/meetings'
 
 /**
@@ -50,7 +52,7 @@ const meetingCardById = Object.fromEntries(
     .filter((entry): entry is [number, string] => entry !== null),
 ) as Record<number, string>
 
-export type DateStatus = 'new' | 'available' | 'locked' | 'past'
+export type DateStatus = 'new' | 'available' | 'locked' | 'premium' | 'past'
 
 export interface DailyDate {
   /** Локальный id записи в списке свиданий за сегодня (1..N). */
@@ -115,6 +117,7 @@ export function msUntilNextRotation(now: Date = new Date()): number {
 function resolveStatus(girl: GirlProfile, locationId: number): DateStatus {
   if (!isGirlChatCompleted(girl.id)) return 'locked'
   if (!hasMeetingDialog(locationId)) return 'locked'
+  if (dateNeedsPremium(girl.id, locationId) && !isPremiumOwned()) return 'premium'
   if (isMeetingCompleted(locationId, girl.id)) return 'past'
   return isMeetingStarted(locationId, girl.id) ? 'available' : 'new'
 }

@@ -8,6 +8,7 @@ import EnterItem from '@/components/EnterItem.vue'
 
 import { Swiper, SwiperSlide } from 'swiper/vue'
 import { GIRLS, getGirlCardImage } from '@/data/girls'
+import { usePremiumAccess } from '@/composables/usePremiumAccess'
 import { useChatHistory } from '@/composables/useChatHistory'
 import { useDailyRewards } from '@/composables/useDailyRewards'
 import { tryStartMainOnboarding } from '@/composables/useOnboarding'
@@ -34,6 +35,7 @@ const tileIcons: Record<string, string> = {
 }
 
 const { pushFrom, router } = useAppNavigation()
+const { canAccessGirl, openPremiumShop } = usePremiumAccess()
 const { energy } = useEnergy()
 const { diamonds } = useDiamonds()
 const { streakDay, cards, canClaimToday, syncAndShowModal, openModal, isModalOpen } =
@@ -106,6 +108,10 @@ const continueChats = computed<ContinueChatItem[]>(() =>
 )
 
 function onOpenChat(girlId: number) {
+  if (!canAccessGirl(girlId)) {
+    openPremiumShop()
+    return
+  }
   void pushFrom(`/chat/${girlId}`)
 }
 

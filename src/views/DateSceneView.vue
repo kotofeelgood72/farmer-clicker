@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, useTemplateRef, watch } from 'vue'
+import { usePremiumAccess } from '@/composables/usePremiumAccess'
 import { useRoute } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import QuickReply from '@/components/QuickReply.vue'
@@ -16,6 +17,7 @@ import EnterItem from '@/components/EnterItem.vue'
 
 const route = useRoute()
 const { pushFrom, back } = useAppNavigation()
+const { canStartDate, openPremiumShop } = usePremiumAccess()
 const { canSpend, spend } = useDiamonds()
 const {
   trackDiamondsSpent,
@@ -40,6 +42,19 @@ const locationImage = computed(() => daily.value?.locationImage)
 
 const locationId = computed(() => daily.value?.locationId ?? 0)
 const girlId = computed(() => daily.value?.girlId ?? 0)
+
+watch(
+  [daily, girlId, locationId],
+  () => {
+    const d = daily.value
+    if (!d) return
+    if (d.status === 'premium' || !canStartDate(d.girlId, d.locationId)) {
+      openPremiumShop()
+      back('/dates')
+    }
+  },
+  { immediate: true },
+)
 
 const {
   dialog,

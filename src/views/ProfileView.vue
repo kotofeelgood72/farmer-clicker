@@ -13,10 +13,12 @@ import { useChatHistory } from '@/composables/useChatHistory'
 import { resetAllGameProgress } from '@/composables/useGameReset'
 import { useAchievements } from '@/composables/useAchievements'
 import { usePlayerStats } from '@/composables/usePlayerStats'
+import { usePremium } from '@/composables/usePremium'
 
 import IconPen from '~icons/solar/pen-2-bold'
 import IconChart from '~icons/solar/chart-2-bold'
 import IconStar from '~icons/solar/star-bold'
+import IconCrown from '~icons/solar/crown-bold'
 import IconUsersGroup from '~icons/solar/users-group-rounded-bold'
 import IconUsersTwo from '~icons/solar/users-group-two-rounded-bold'
 import IconHeart from '~icons/solar/heart-bold'
@@ -37,6 +39,7 @@ const { avatars, selectedAvatar, setAvatar } = useUserAvatar()
 const { unreadTotal } = useChatHistory()
 const { stats: playerStats, refresh: refreshStats } = usePlayerStats()
 const { profilePreview, refreshAchievements } = useAchievements()
+const { isPremium } = usePremium()
 const adsEnabled = canShowAds()
 const showAvatarPicker = ref(false)
 const ratingBusy = ref(false)
@@ -151,7 +154,12 @@ function onResetProgress() {
       <EnterItem :order="2" tag="section" class="identity">
         <div class="nick-row">
           <h1 class="nickname">{{ user.nickname }}</h1>
-          <IconStar class="nick-badge" />
+          <IconCrown
+            v-if="isPremium"
+            class="nick-badge nick-badge--premium"
+            aria-label="Премиум"
+          />
+          <IconStar v-else class="nick-badge" />
         </div>
       </EnterItem>
 
@@ -385,6 +393,13 @@ function onResetProgress() {
   font-size: 22px;
   font-weight: 800;
   color: var(--text);
+}
+
+.nick-badge--premium {
+  width: 22px;
+  height: 22px;
+  color: #ffb83d;
+  filter: drop-shadow(0 0 6px rgba(255, 184, 61, 0.55));
 }
 
 .nick-badge {

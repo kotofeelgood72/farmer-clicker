@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import AppButton from '@/components/AppButton.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import CoverImage from '@/components/CoverImage.vue'
@@ -8,6 +8,9 @@ import BottomNav from '@/components/BottomNav.vue'
 import EnterItem from '@/components/EnterItem.vue'
 
 import IconEyeClosed from '~icons/solar/eye-closed-bold'
+import IconCrown from '~icons/solar/crown-bold'
+import { usePremium } from '@/composables/usePremium'
+import { usePremiumAccess } from '@/composables/usePremiumAccess'
 import {
   generateDailyDates,
   msUntilNextRotation,
@@ -21,6 +24,8 @@ const { unreadTotal } = useChatHistory()
 type Tab = 'available' | 'past'
 
 const { pushFrom, back, router } = useAppNavigation()
+const { isPremium } = usePremium()
+const { openPremiumShop } = usePremiumAccess()
 
 const tab = ref<Tab>('available')
 const dailyDates = ref<DailyDate[]>(generateDailyDates())
@@ -37,6 +42,10 @@ function scheduleRotation() {
 
 onMounted(() => {
   scheduleRotation()
+})
+
+watch(isPremium, () => {
+  dailyDates.value = generateDailyDates()
 })
 
 onBeforeUnmount(() => {
@@ -68,6 +77,10 @@ function onFindGirl() {
 
 function onOpen(item: DailyDate) {
   if (item.status === 'locked') return
+  if (item.status === 'premium') {
+    openPremiumShop()
+    return
+  }
   runAfterInterstitial(() => void pushFrom(`/date/${item.id}`), 'date_start')
 }
 
@@ -111,7 +124,10 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
           :base="2"
         >
         <button
-          :class="['card', { locked: d.status === 'locked' }]"
+          :class="[
+            'card',
+            { locked: d.status === 'locked', premium: d.status === 'premium' },
+          ]"
           :disabled="d.status === 'locked'"
           @click="onOpen(d)"
         >
@@ -140,13 +156,27 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
             <span v-else class="thumb-letter">{{ d.girlName.charAt(0) }}</span>
 
             <span v-if="d.status === 'new'" class="badge-new">НОВОЕ</span>
+            <span v-else-if="d.status === 'premium'" class="badge-premium">
+              <IconCrown class="badge-premium__icon" />
+              Премиум
+            </span>
             <span v-else-if="d.status === 'locked'" class="badge-lock" aria-hidden="true">
               <IconEyeClosed class="badge-lock__icon" />
             </span>
 
-            <div class="body" :class="{ 'body--locked': d.status === 'locked' }">
+            <div
+              class="body"
+              :class="{
+                'body--locked': d.status === 'locked',
+                'body--premium': d.status === 'premium',
+              }"
+            >
               <template v-if="d.status === 'locked'">
                 <p class="locked-hint">Вы ещё не знакомы с ней</p>
+              </template>
+              <template v-else-if="d.status === 'premium'">
+                <p class="locked-hint">Свидание в Премиуме</p>
+                <p class="premium-hint-sub">{{ d.title }} · {{ d.girlName }}</p>
               </template>
               <template v-else>
                 <div class="title">{{ d.title }}</div>
@@ -326,6 +356,18 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   cursor: not-allowed;
 }
 
+.card.premium {
+  cursor: pointer;
+}
+
+.card.premium .thumb :deep(.thumb-bg) {
+  filter: blur(3px) brightness(0.65);
+}
+
+.card.premium .thumb :deep(.thumb-girl) {
+  filter: blur(2px) brightness(0.8) drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
+}
+
 .thumb {
   position: relative;
   width: 100%;
@@ -438,6 +480,46 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   width: 16px;
   height: 16px;
   color: #fff;
+}
+
+.badge-premium {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #b14bff 0%, #ff4d8e 100%);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 10px rgba(177, 75, 255, 0.45);
+}
+
+.badge-premium__icon {
+  width: 12px;
+  height: 12px;
+}
+
+.body--premium {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  text-align: center;
+  padding-bottom: 12px;
+  gap: 2px;
+}
+
+.premium-hint-sub {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.82);
 }
 
 .body--locked {

@@ -115,6 +115,11 @@ const canClaimDoubledViaAd = computed(
   () => canClaimToday.value && !isPremium.value,
 )
 
+/** Множитель награды: премиум получает ×2 без рекламы. */
+const todayClaimMultiplier = computed(() =>
+  isPremium.value ? DAILY_REWARD_AD_MULTIPLIER : 1,
+)
+
 /** Сколько дней цикла уже получено (включая сегодняшний, если забрали). */
 const completedDays = computed(() => {
   if (claimedToday.value) return state.value.streakDay
@@ -260,6 +265,7 @@ export function useDailyRewards() {
     todayRewardDoubled,
     canClaimToday,
     canClaimDoubledViaAd,
+    todayClaimMultiplier,
     claimingAd: computed(() => claimingAd.value),
     isModalOpen,
     syncOnVisit,

@@ -15,6 +15,8 @@ import {
 import { isGirlChatAwaitingReply, isGirlChatCompleted } from '@/composables/useGirlChat'
 import { useAppNavigation } from '@/composables/useAppNavigation'
 import { GIRLS, getGirlAvatarImage } from '@/data/girls'
+import { usePremiumAccess } from '@/composables/usePremiumAccess'
+import { isPremiumGirlId } from '@/constants/premiumContent'
 
 interface ChatListItem {
   id: number
@@ -24,10 +26,12 @@ interface ChatListItem {
   unread?: number
   color: string
   completed: boolean
+  premiumLocked: boolean
 }
 
 const { pushFrom, back, router } = useAppNavigation()
 const { recentChats, markChatRead, unreadTotal } = useChatHistory()
+const { canAccessGirl, openPremiumShop } = usePremiumAccess()
 
 const chats = computed<ChatListItem[]>(() =>
   recentChats.value.map((session) => {
@@ -42,6 +46,8 @@ const chats = computed<ChatListItem[]>(() =>
       unread: isGirlChatAwaitingReply(session.girlId) ? 1 : undefined,
       color: girl?.color ?? '#3a3a48',
       completed: isGirlChatCompleted(session.girlId),
+      premiumLocked:
+        isPremiumGirlId(session.girlId) && !canAccessGirl(session.girlId),
     }
   }),
 )
@@ -88,6 +94,10 @@ function onOpenProfile(girlId: number) {
 }
 
 function onOpenChat(chat: ChatListItem) {
+  if (chat.premiumLocked) {
+    openPremiumShop()
+    return
+  }
   markChatRead(chat.id)
   void pushFrom(`/chat/${chat.id}`)
 }

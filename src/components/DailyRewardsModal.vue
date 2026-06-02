@@ -20,6 +20,7 @@ const {
   todayRewardDoubled,
   canClaimToday,
   canClaimDoubledViaAd,
+  todayClaimMultiplier,
   claimingAd,
   isModalOpen,
   claimToday,
@@ -44,7 +45,7 @@ function cardLabel(card: DailyRewardCard): string {
 }
 
 function onClaim() {
-  claimToday()
+  claimToday(todayClaimMultiplier.value)
 }
 
 function onClaimDoubled() {

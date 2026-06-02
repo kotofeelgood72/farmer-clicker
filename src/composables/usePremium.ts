@@ -56,6 +56,11 @@ export async function syncPremiumFromSdk(): Promise<void> {
   return syncPromise
 }
 
+/** Синхронная проверка вне Vue (даты, data layer). */
+export function isPremiumOwned(): boolean {
+  return owned.value
+}
+
 export function usePremium() {
   const isPremium = computed(() => owned.value)
 

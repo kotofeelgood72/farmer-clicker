@@ -17,10 +17,12 @@ import {
   getNextRelationshipUnlocks,
 } from '@/composables/useRelationshipLevel'
 import { useAppNavigation } from '@/composables/useAppNavigation'
+import { usePremiumAccess } from '@/composables/usePremiumAccess'
 import EnterItem from '@/components/EnterItem.vue'
 
 const route = useRoute()
 const { pushFrom, back } = useAppNavigation()
+const { canAccessGirl, openPremiumShop } = usePremiumAccess()
 
 const girlId = computed(() => {
   const id = Number(route.params.id)
@@ -36,6 +38,7 @@ const relationship = computed(() => {
 })
 
 const dialogComplete = computed(() => relationship.value.chat.complete)
+const chatPremiumLocked = computed(() => !canAccessGirl(girlId.value))
 
 const nextUnlocks = computed(() => getNextRelationshipUnlocks(relationship.value))
 
@@ -48,6 +51,10 @@ function onBack() {
 }
 
 function onOpenChat() {
+  if (chatPremiumLocked.value) {
+    openPremiumShop()
+    return
+  }
   void pushFrom(`/chat/${girlId.value}`)
 }
 
@@ -219,7 +226,9 @@ function closePhoto() {
       </EnterItem>
 
       <EnterItem v-if="!dialogComplete" :order="6" class="cta">
-        <AppButton variant="violet" @click="onOpenChat">В чат</AppButton>
+        <AppButton variant="violet" @click="onOpenChat">
+          {{ chatPremiumLocked ? 'Открыть Премиум' : 'В чат' }}
+        </AppButton>
       </EnterItem>
     </div>
 

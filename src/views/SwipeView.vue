@@ -6,6 +6,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import MatchOverlay from '@/components/MatchOverlay.vue'
 import IconCloseX from '@/components/icons/IconCloseX.vue'
 import IconVerified from '~icons/solar/verified-check-bold'
+import IconCrown from '~icons/solar/crown-bold'
 import IconFire from '~icons/solar/fire-bold'
 import IconAdPlay from '~icons/solar/play-circle-bold'
 import heartImg from '@/assets/ui/hearth.png'
@@ -15,6 +16,8 @@ import { useChatHistory } from '@/composables/useChatHistory'
 import { REWARDED_ENERGY_AMOUNT } from '@/constants/game'
 import { SWIPE_ENERGY_COST, useEnergy } from '@/composables/useEnergy'
 import { usePremium } from '@/composables/usePremium'
+import { usePremiumAccess } from '@/composables/usePremiumAccess'
+import { isPremiumGirlId } from '@/constants/premiumContent'
 import { useRewardedEnergy } from '@/composables/useRewardedEnergy'
 import { useAppNavigation } from '@/composables/useAppNavigation'
 import { runAfterInterstitial } from '@/composables/useAdPlacements'
@@ -26,6 +29,7 @@ const { pushFrom, back, router } = useAppNavigation()
 const { touchChat, hasActiveChat } = useChatHistory()
 const { energy, canSpend, spend } = useEnergy()
 const { isPremium } = usePremium()
+const { canAccessGirl, openPremiumShop } = usePremiumAccess()
 const { watchAdForEnergy, watching: watchingAd } = useRewardedEnergy()
 const { recordProfileSeen } = usePlayerStats()
 const { trackSwipeEnergy, trackMatch } = useAchievements()
@@ -56,6 +60,10 @@ const next = computed(() => {
 
 const matchVisible = ref(false)
 const matchedCharacter = ref<GirlProfile | null>(null)
+
+function isCardPremiumLocked(girl: GirlProfile): boolean {
+  return isPremiumGirlId(girl.id) && !canAccessGirl(girl.id)
+}
 
 function cardImageStyle(girl: GirlProfile) {
   if (girl.image) {
@@ -191,6 +199,10 @@ function advance(direction: 'left' | 'right') {
   // eslint-disable-next-line no-console
   console.info('[swipe]', direction === 'right' ? 'like' : 'skip', liked?.name)
   if (direction === 'right' && liked) {
+    if (!canAccessGirl(liked.id)) {
+      openPremiumShop()
+      return
+    }
     trackMatch()
     touchChat(liked.id, { preview: 'Это совпадение!' })
     matchedCharacter.value = liked
@@ -265,7 +277,15 @@ onUnmounted(() => {
     <div v-else class="stack" :class="{ 'stack--locked': matchVisible }">
       <!-- next card (behind) -->
       <div v-if="next" ref="nextCard" class="card card--next" :key="`next-${next.id}-${index}`">
-        <div class="card-image" :style="cardImageStyle(next)">
+        <div
+          class="card-image"
+          :class="{ 'card-image--premium': isCardPremiumLocked(next) }"
+          :style="cardImageStyle(next)"
+        >
+          <span v-if="isCardPremiumLocked(next)" class="premium-pill">
+            <IconCrown class="premium-pill__icon" />
+            Премиум
+          </span>
           <div class="rating-pill">
             <IconFire v-for="n in next.rating" :key="n" class="rating-fire" />
           </div>
@@ -290,14 +310,25 @@ onUnmounted(() => {
         v-if="current"
         ref="currentCard"
         class="card card--current"
-        :class="{ 'card--no-energy': showEnergyCta }"
+        :class="{
+          'card--no-energy': showEnergyCta,
+          'card--premium': current && isCardPremiumLocked(current),
+        }"
         :key="`current-${current.id}-${index}`"
         @pointerdown="onPointerDown"
         @pointermove="onPointerMove"
         @pointerup="onPointerUp"
         @pointercancel="onPointerUp"
       >
-        <div class="card-image" :style="cardImageStyle(current)">
+        <div
+          class="card-image"
+          :class="{ 'card-image--premium': isCardPremiumLocked(current) }"
+          :style="cardImageStyle(current)"
+        >
+          <span v-if="isCardPremiumLocked(current)" class="premium-pill">
+            <IconCrown class="premium-pill__icon" />
+            Премиум
+          </span>
           <div class="rating-pill">
             <IconFire v-for="n in current.rating" :key="n" class="rating-fire" />
           </div>
@@ -623,6 +654,43 @@ onUnmounted(() => {
       0 10px 32px rgba(177, 75, 255, 0.55),
       0 0 0 12px rgba(255, 77, 142, 0);
   }
+}
+
+.premium-pill {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #b14bff 0%, #ff4d8e 100%);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  box-shadow: 0 2px 12px rgba(177, 75, 255, 0.45);
+}
+
+.premium-pill__icon {
+  width: 14px;
+  height: 14px;
+}
+
+.card-image--premium::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(177, 75, 255, 0.12) 0%,
+    rgba(0, 0, 0, 0.08) 45%,
+    rgba(0, 0, 0, 0.35) 100%
+  );
 }
 
 .rating-pill {
