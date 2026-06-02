@@ -11,6 +11,7 @@ import { GIRLS, getGirlCardImage } from '@/data/girls'
 import { usePremiumAccess } from '@/composables/usePremiumAccess'
 import { useChatHistory } from '@/composables/useChatHistory'
 import { useDailyRewards } from '@/composables/useDailyRewards'
+import { openChatWithAd } from '@/composables/useAdPlacements'
 import { tryStartMainOnboarding } from '@/composables/useOnboarding'
 import { useDiamonds } from '@/composables/useDiamonds'
 import { useEnergy } from '@/composables/useEnergy'
@@ -112,7 +113,7 @@ function onOpenChat(girlId: number) {
     openPremiumShop()
     return
   }
-  void pushFrom(`/chat/${girlId}`)
+  openChatWithAd(() => void pushFrom(`/chat/${girlId}`))
 }
 
 const tiles = [

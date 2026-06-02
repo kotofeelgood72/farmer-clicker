@@ -7,10 +7,28 @@ const RANDOM_REPLY_CHANCE = 0.1
 const RANDOM_REPLY_MIN_GAP_MS = 120_000
 
 let lastRandomReplyAdAt = 0
+const SWIPES_PER_INTERSTITIAL = 3
+let swipeCountSinceAd = 0
 
 export interface RunAfterInterstitialOptions {
   /** После действия (и рекламы, если была) — окно оценки, не параллельно с ads. */
   reviewAfter?: boolean
+}
+
+/** Реклама перед открытием чата (список, главная, профиль). */
+export function openChatWithAd(action: () => void): void {
+  runAfterInterstitial(action, 'chat_open')
+}
+
+/** Каждые 3 смахивания влево/вправо — interstitial, затем продолжение. */
+export function afterSwipeCompleted(action: () => void): void {
+  swipeCountSinceAd += 1
+  if (swipeCountSinceAd < SWIPES_PER_INTERSTITIAL) {
+    action()
+    return
+  }
+  swipeCountSinceAd = 0
+  runAfterInterstitial(action, 'swipe_every_3')
 }
 
 /** Interstitial только по действию пользователя; при недоступности — сразу action. */
@@ -58,4 +76,5 @@ export function maybeInterstitialOnReply(action: () => void): void {
 
 export function resetAdPlacementsState(): void {
   lastRandomReplyAdAt = 0
+  swipeCountSinceAd = 0
 }

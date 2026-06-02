@@ -25,7 +25,7 @@ import { usePremiumAccess } from '@/composables/usePremiumAccess'
 import { isPremiumGirlId } from '@/constants/premiumContent'
 import { useRewardedEnergy } from '@/composables/useRewardedEnergy'
 import { useAppNavigation } from '@/composables/useAppNavigation'
-import { runAfterInterstitial } from '@/composables/useAdPlacements'
+import { afterSwipeCompleted, runAfterInterstitial } from '@/composables/useAdPlacements'
 import { useAchievements } from '@/composables/useAchievements'
 import { usePlayerStats } from '@/composables/usePlayerStats'
 import EnterItem from '@/components/EnterItem.vue'
@@ -211,29 +211,31 @@ function resetCurrentCardTransform() {
 }
 
 function advance(direction: 'left' | 'right') {
-  const liked = current.value
-  recordProfileSeen()
-  dragX.value = 0
-  animating.value = false
-  // eslint-disable-next-line no-console
-  console.info('[swipe]', direction === 'right' ? 'like' : 'skip', liked?.name)
+  afterSwipeCompleted(() => {
+    const liked = current.value
+    recordProfileSeen()
+    dragX.value = 0
+    animating.value = false
+    // eslint-disable-next-line no-console
+    console.info('[swipe]', direction === 'right' ? 'like' : 'skip', liked?.name)
 
-  if (direction === 'left' && liked) {
-    markSwipePassed(liked.id)
-    return
-  }
-
-  if (direction === 'right' && liked) {
-    if (!canAccessGirl(liked.id)) {
-      resetCurrentCardTransform()
-      openPremiumShop()
+    if (direction === 'left' && liked) {
+      markSwipePassed(liked.id)
       return
     }
-    trackMatch()
-    touchChat(liked.id, { preview: 'Это совпадение!' })
-    matchedCharacter.value = liked
-    matchVisible.value = true
-  }
+
+    if (direction === 'right' && liked) {
+      if (!canAccessGirl(liked.id)) {
+        resetCurrentCardTransform()
+        openPremiumShop()
+        return
+      }
+      trackMatch()
+      touchChat(liked.id, { preview: 'Это совпадение!' })
+      matchedCharacter.value = liked
+      matchVisible.value = true
+    }
+  })
 }
 
 function onUnlockProfileViaAd() {

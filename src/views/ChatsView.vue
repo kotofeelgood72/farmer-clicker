@@ -15,6 +15,7 @@ import {
 import { isGirlChatAwaitingReply, isGirlChatCompleted } from '@/composables/useGirlChat'
 import { useAppNavigation } from '@/composables/useAppNavigation'
 import { GIRLS, getGirlAvatarImage } from '@/data/girls'
+import { openChatWithAd } from '@/composables/useAdPlacements'
 import { usePremiumAccess } from '@/composables/usePremiumAccess'
 import { isPremiumGirlId } from '@/constants/premiumContent'
 
@@ -99,7 +100,7 @@ function onOpenChat(chat: ChatListItem) {
     return
   }
   markChatRead(chat.id)
-  void pushFrom(`/chat/${chat.id}`)
+  openChatWithAd(() => void pushFrom(`/chat/${chat.id}`))
 }
 
 function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {

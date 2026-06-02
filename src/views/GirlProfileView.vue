@@ -17,6 +17,7 @@ import {
   getNextRelationshipUnlocks,
 } from '@/composables/useRelationshipLevel'
 import { useAppNavigation } from '@/composables/useAppNavigation'
+import { openChatWithAd } from '@/composables/useAdPlacements'
 import { usePremiumAccess } from '@/composables/usePremiumAccess'
 import EnterItem from '@/components/EnterItem.vue'
 
@@ -55,7 +56,7 @@ function onOpenChat() {
     openPremiumShop()
     return
   }
-  void pushFrom(`/chat/${girlId.value}`)
+  openChatWithAd(() => void pushFrom(`/chat/${girlId.value}`))
 }
 
 const gallery = computed(() => girl.value.gallery)
