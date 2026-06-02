@@ -123,6 +123,14 @@ function markInterstitialShown(): void {
   lastAnyAdAt = lastInterstitialAt
 }
 
+/** Сбрасывает залипший isAdPlaying (SDK иногда не вызывает onClose). */
+function resetStaleAdState(): void {
+  if (!isAdPlaying) return
+  isAdPlaying = false
+  gameplayResume()
+  window.dispatchEvent(new CustomEvent('ads:resume'))
+}
+
 function invokeFullscreenAdv(reason: string | undefined, finish: () => void): boolean {
   const ysdk = getYsdk()
   if (!ysdk?.adv) {
@@ -260,32 +268,58 @@ export function showInterstitial(
 }
 
 /**
- * Interstitial без кулдаунов (только ads off / уже идёт реклама).
- * Для «Написать ей» после мэтча.
+ * Interstitial без кулдаунов FIRST_AD / INTERSTITIAL_MIN / REWARDED buffer.
+ * @returns false если SDK недоступен — вызывающий может повторить попытку.
  */
 export function showInterstitialIgnoringCooldown(
   _reason?: string,
   opts?: { onClose?: () => void; onBlocked?: () => void },
 ): boolean {
   const finish = () => opts?.onClose?.()
-  const blocked = () => (opts?.onBlocked ?? finish)()
+  const blocked = () => opts?.onBlocked?.() ?? finish()
 
   if (!shouldShowAds()) {
-    logInterstitialBlocked(_reason, 'ads disabled')
-    blocked()
-    return false
-  }
-  if (isAdPlaying) {
-    logInterstitialBlocked(_reason, 'ad already playing')
+    console.warn('[ads] forced interstitial skipped: ads disabled', _reason)
     blocked()
     return false
   }
 
+  resetStaleAdState()
+
   if (!invokeFullscreenAdv(_reason, finish)) {
-    blocked()
     return false
   }
   return true
+}
+
+const FORCED_AD_RETRY_MS = 200
+const FORCED_AD_MAX_RETRIES = 20
+
+/** Показ без кулдаунов с повторами, пока не готов ysdk.adv. */
+export function runForcedInterstitialWithRetry(
+  reason: string,
+  action: () => void,
+): void {
+  if (!canShowAds()) {
+    action()
+    return
+  }
+
+  const opts = { onClose: action, onBlocked: action }
+  if (showInterstitialIgnoringCooldown(reason, opts)) return
+
+  let tries = 0
+  const attempt = () => {
+    if (showInterstitialIgnoringCooldown(reason, opts)) return
+    tries += 1
+    if (tries < FORCED_AD_MAX_RETRIES) {
+      window.setTimeout(attempt, FORCED_AD_RETRY_MS)
+      return
+    }
+    console.warn('[ads] forced interstitial unavailable after retries', reason)
+    action()
+  }
+  window.setTimeout(attempt, FORCED_AD_RETRY_MS)
 }
 
 /**
