@@ -21,9 +21,12 @@ function shouldShowAds(): boolean {
 }
 
 const SESSION_START = Date.now()
-const FIRST_AD_GAP = 60_000 // no interstitial in first minute (Yandex requirement)
-const INTERSTITIAL_MIN_GAP = 90_000 // our cooldown — 30s stricter than SDK
-const INTER_TO_REWARD_GAP = 30_000 // don't pile ads back-to-back
+/** Первая минута без interstitial, если стартовая реклама не была показана. */
+const FIRST_AD_GAP = 60_000
+/** Минимум между fullscreen (Яндекс: обычно ≥60 с). */
+const INTERSTITIAL_MIN_GAP = 60_000
+/** Пауза после rewarded перед следующим fullscreen. */
+const INTER_TO_REWARD_GAP = 15_000
 /** Пауза после рекламы перед окном оценки (Яндекс SDK). */
 export const REVIEW_AFTER_AD_MS = 5_000
 
@@ -59,13 +62,50 @@ export function msUntilSafeForReview(): number {
   return Math.max(0, left)
 }
 
-export function canShowInterstitial(): boolean {
-  if (!shouldShowAds()) return false
-  if (isAdPlaying) return false
+function passesSessionFirstMinuteGate(now: number): boolean {
+  // Стартовая реклама = разрешённый показ в начале; не блокируем игру ещё 60 с.
+  if (startupAdShown) return true
+  return now - SESSION_START >= FIRST_AD_GAP
+}
+
+function passesInterstitialInterval(now: number): boolean {
+  if (lastInterstitialAt <= 0) return true
+  return now - lastInterstitialAt >= INTERSTITIAL_MIN_GAP
+}
+
+function passesRewardedBuffer(now: number): boolean {
+  if (lastAnyAdAt <= 0) return true
+  return now - lastAnyAdAt >= INTER_TO_REWARD_GAP
+}
+
+function logInterstitialBlocked(reason: string | undefined, why: string): void {
+  if (!import.meta.env.DEV || !reason) return
+  // eslint-disable-next-line no-console
+  console.info('[ads] interstitial skipped', reason, why)
+}
+
+export function canShowInterstitial(reason?: string): boolean {
+  if (!shouldShowAds()) {
+    logInterstitialBlocked(reason, 'ads disabled')
+    return false
+  }
+  if (isAdPlaying) {
+    logInterstitialBlocked(reason, 'ad already playing')
+    return false
+  }
   const now = Date.now()
-  if (now - SESSION_START < FIRST_AD_GAP) return false
-  if (now - lastInterstitialAt < INTERSTITIAL_MIN_GAP) return false
-  if (now - lastAnyAdAt < INTER_TO_REWARD_GAP) return false
+  if (!passesSessionFirstMinuteGate(now)) {
+    logInterstitialBlocked(reason, 'first minute (no startup ad)')
+    return false
+  }
+  if (!passesInterstitialInterval(now)) {
+    logInterstitialBlocked(reason, 'interstitial cooldown')
+    return false
+  }
+  if (!passesRewardedBuffer(now)) {
+    logInterstitialBlocked(reason, 'after rewarded cooldown')
+    return false
+  }
   return true
 }
 
@@ -78,32 +118,40 @@ function canShowStartupInterstitial(): boolean {
   return true
 }
 
+function markInterstitialShown(): void {
+  lastInterstitialAt = Date.now()
+  lastAnyAdAt = lastInterstitialAt
+}
+
 function invokeFullscreenAdv(reason: string | undefined, finish: () => void): boolean {
   const ysdk = getYsdk()
   if (!ysdk?.adv) {
     if (import.meta.env.DEV) {
       // eslint-disable-next-line no-console
       console.info('[ads] interstitial (dev stub)', reason)
-      lastInterstitialAt = Date.now()
-      lastAnyAdAt = lastInterstitialAt
+      markInterstitialShown()
       finish()
       return true
     }
+    console.warn('[ads] interstitial: no ysdk.adv', reason)
     return false
   }
 
-  lastInterstitialAt = Date.now()
-  lastAnyAdAt = lastInterstitialAt
-
   emitPause()
+  let marked = false
+  const markOnce = () => {
+    if (marked) return
+    marked = true
+    markInterstitialShown()
+  }
+
   try {
     ysdk.adv.showFullscreenAdv({
       callbacks: {
         onOpen: () => {
-          if (import.meta.env.DEV) {
-            // eslint-disable-next-line no-console
-            console.info('[ads] interstitial opened', reason)
-          }
+          markOnce()
+          // eslint-disable-next-line no-console
+          console.info('[ads] interstitial opened', reason)
         },
         onClose: () => {
           emitResume()
@@ -120,6 +168,7 @@ function invokeFullscreenAdv(reason: string | undefined, finish: () => void): bo
     console.warn('[ads] interstitial failed', reason, err)
     emitResume()
     finish()
+    return false
   }
   return true
 }
@@ -139,8 +188,8 @@ export function showStartupInterstitial(opts?: { onClose?: () => void }): boolea
   return true
 }
 
-const STARTUP_AD_RETRY_MS = 250
-const STARTUP_AD_MAX_RETRIES = 24
+const STARTUP_AD_RETRY_MS = 300
+const STARTUP_AD_MAX_RETRIES = 40
 
 let startupScheduleActive = false
 let pendingStartupClose: (() => void) | null = null
@@ -197,7 +246,7 @@ export function showInterstitial(
 ): boolean {
   const finish = () => opts?.onClose?.()
 
-  if (!canShowInterstitial()) {
+  if (!canShowInterstitial(_reason)) {
     finish()
     return false
   }

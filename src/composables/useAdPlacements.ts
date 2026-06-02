@@ -2,9 +2,9 @@ import { canShowAds, showInterstitial } from '@/ads/ads'
 import { scheduleGameReview } from '@/composables/useGameReview'
 
 /** Вероятность interstitial при отправке ответа в чате/свидании. */
-const RANDOM_REPLY_CHANCE = 0.1
+const RANDOM_REPLY_CHANCE = 0.25
 /** Минимальный интервал между «случайными» рекламами при ответах. */
-const RANDOM_REPLY_MIN_GAP_MS = 120_000
+const RANDOM_REPLY_MIN_GAP_MS = 60_000
 
 let lastRandomReplyAdAt = 0
 const SWIPES_PER_INTERSTITIAL = 3
