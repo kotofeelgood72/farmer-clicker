@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { PREMIUM_PRODUCT_ID } from '@/constants/game'
-import { fetchOwnedPremium, purchasePremiumProduct } from '@/yandex/payments'
+import { processPendingPurchases, purchasePremiumProduct } from '@/yandex/payments'
 import { useAchievements } from '@/composables/useAchievements'
 
 const STORAGE_KEY = 'swipe-premium-v1'
@@ -46,8 +46,8 @@ export async function syncPremiumFromSdk(): Promise<void> {
   syncPromise = (async () => {
     syncing.value = true
     try {
-      const remoteOwned = await fetchOwnedPremium()
-      if (remoteOwned) grantPremium()
+      const { hasPremium } = await processPendingPurchases()
+      if (hasPremium) grantPremium()
     } finally {
       syncing.value = false
       syncPromise = null
@@ -71,8 +71,14 @@ export function usePremium() {
     purchasing.value = true
     try {
       const ok = await purchasePremiumProduct()
-      if (ok) grantPremium()
-      return ok
+      if (!ok) return false
+
+      grantPremium()
+      const { hasPremium } = await processPendingPurchases()
+      if (!hasPremium && !import.meta.env.DEV) {
+        console.warn('[premium] purchase ok but getPurchases has no premium yet')
+      }
+      return true
     } finally {
       purchasing.value = false
     }

@@ -15,6 +15,33 @@ export interface YsdkProduct {
   price: string
   priceValue: string
   priceCurrencyCode: string
+  /** Иконка портальной валюты из SDK (getPriceCurrencyImage). */
+  currencyImageUrl?: string
+}
+
+type YsdkProductRaw = YsdkProduct & {
+  getPriceCurrencyImage?: (size: 'small' | 'medium' | 'svg') => string
+}
+
+function normalizeProduct(raw: YsdkProductRaw): YsdkProduct {
+  let currencyImageUrl: string | undefined
+  if (typeof raw.getPriceCurrencyImage === 'function') {
+    try {
+      currencyImageUrl = raw.getPriceCurrencyImage('small')
+    } catch {
+      /* ignore */
+    }
+  }
+  return {
+    id: raw.id,
+    title: raw.title,
+    description: raw.description,
+    imageURI: raw.imageURI,
+    price: raw.price,
+    priceValue: raw.priceValue,
+    priceCurrencyCode: raw.priceCurrencyCode,
+    currencyImageUrl,
+  }
 }
 
 export interface YsdkPayments {
@@ -55,23 +82,42 @@ export async function fetchPremiumCatalogProduct(): Promise<YsdkProduct | null> 
   if (!payments) return null
   try {
     const catalog = await payments.getCatalog()
-    return catalog.find((p) => p.id === PREMIUM_PRODUCT_ID) ?? null
+    const product = catalog.find((p) => p.id === PREMIUM_PRODUCT_ID)
+    return product ? normalizeProduct(product as YsdkProductRaw) : null
   } catch (err) {
     console.warn('[yandex payments] getCatalog failed', err)
     return null
   }
 }
 
-export async function fetchOwnedPremium(): Promise<boolean> {
+/** Список покупок игрока (для постоянных — без consumePurchase). */
+export async function fetchPurchases(): Promise<YsdkPurchase[]> {
   const payments = await getPaymentsApi()
-  if (!payments) return false
+  if (!payments) return []
   try {
-    const purchases = await payments.getPurchases()
-    return purchases.some((p) => p.productID === PREMIUM_PRODUCT_ID)
+    return await payments.getPurchases()
   } catch (err) {
     console.warn('[yandex payments] getPurchases failed', err)
-    return false
+    return []
   }
+}
+
+export async function fetchOwnedPremium(): Promise<boolean> {
+  const purchases = await fetchPurchases()
+  return purchases.some((p) => p.productID === PREMIUM_PRODUCT_ID)
+}
+
+/**
+ * Обработка необработанных покупок при запуске (требование SDK / модерации).
+ * Постоянные товары — только проверка productID, consume не вызывается.
+ */
+export async function processPendingPurchases(): Promise<{
+  hasPremium: boolean
+  purchases: YsdkPurchase[]
+}> {
+  const purchases = await fetchPurchases()
+  const hasPremium = purchases.some((p) => p.productID === PREMIUM_PRODUCT_ID)
+  return { hasPremium, purchases }
 }
 
 export async function purchasePremiumProduct(): Promise<boolean> {

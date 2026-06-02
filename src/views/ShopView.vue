@@ -84,10 +84,30 @@ function formatIapPrice(value: number | string): string {
   return n.toLocaleString('ru-RU')
 }
 
-const premiumPriceValue = computed(() => {
-  if (premiumCatalog.value?.priceValue) return premiumCatalog.value.priceValue
+/** Цена премиума из каталога SDK (п. 3.8 — портальная валюта). */
+const premiumPriceDisplay = computed(() => {
+  const product = premiumCatalog.value
+  if (product?.price?.trim()) {
+    return {
+      text: product.price,
+      icon: product.currencyImageUrl ?? iconYanCoin,
+    }
+  }
+  if (product?.priceValue) {
+    const code = product.priceCurrencyCode?.trim()
+    const text = code
+      ? `${formatIapPrice(product.priceValue)} ${code}`
+      : formatIapPrice(product.priceValue)
+    return {
+      text,
+      icon: product.currencyImageUrl ?? iconYanCoin,
+    }
+  }
   const item = allItems.find((i) => i.unit === 'premium-lifetime')
-  return item ? String(item.price) : ''
+  return {
+    text: item ? formatIapPrice(item.price) : '',
+    icon: iconYanCoin,
+  }
 })
 
 /** 500 алмазов = 100 ян (0,2 ян/алмаз); на крупных пакетах — скидка от базовой цены. */
@@ -220,8 +240,12 @@ function onBuyMore() {
           <div class="premium-card__price">
             <span v-if="isPremium" class="premium-card__owned">Куплено</span>
             <span v-else class="iap-price iap-price--on-dark">
-              <span class="premium-card__price-value">{{ formatIapPrice(premiumPriceValue) }}</span>
-              <img :src="iconYanCoin" alt="" class="iap-price__coin" />
+              <span class="premium-card__price-value">{{ premiumPriceDisplay.text }}</span>
+              <img
+                :src="premiumPriceDisplay.icon"
+                alt=""
+                class="iap-price__coin"
+              />
             </span>
           </div>
         </button>
