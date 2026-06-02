@@ -35,11 +35,6 @@ function grantPremium() {
   useAchievements().trackPremiumPurchase()
 }
 
-export function resetPremiumStore() {
-  owned.value = false
-  persistOwned(false)
-}
-
 /** Синхронизация с покупками Яндекс (non-consumable). */
 export async function syncPremiumFromSdk(): Promise<void> {
   if (syncPromise) return syncPromise

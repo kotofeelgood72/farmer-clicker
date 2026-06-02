@@ -8,10 +8,10 @@ import { resetChatHistoryStore } from '@/composables/useChatHistory'
 import { resetDailyRewardsStore } from '@/composables/useDailyRewards'
 import { resetDiamondsStore } from '@/composables/useDiamonds'
 import { resetEnergyStore } from '@/composables/useEnergy'
-import { resetPremiumStore } from '@/composables/usePremium'
 import { resetPlayerStatsStore } from '@/composables/usePlayerStats'
 
-const PRESERVED_KEYS = new Set(['swipe-user-avatar'])
+/** Премиум и аватар не сбрасываются вместе с прогрессом. */
+const PRESERVED_KEYS = new Set(['swipe-user-avatar', 'swipe-premium-v1'])
 
 function clearSwipeLocalStorage() {
   const keys: string[] = []
@@ -28,7 +28,6 @@ function clearSwipeLocalStorage() {
 export function resetAllGameProgress() {
   clearSwipeLocalStorage()
   resetEnergyStore()
-  resetPremiumStore()
   resetDiamondsStore()
   resetChatHistoryStore()
   resetPlayerStatsStore()
