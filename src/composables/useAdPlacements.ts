@@ -27,8 +27,13 @@ export function afterSwipeCompleted(action: () => void): void {
     action()
     return
   }
-  swipeCountSinceAd = 0
-  runAfterInterstitial(action, 'swipe_every_3')
+  showInterstitial('swipe_every_3', {
+    onClose: () => {
+      swipeCountSinceAd = 0
+      action()
+    },
+    onBlocked: () => action(),
+  })
 }
 
 /** Interstitial только по действию пользователя; при недоступности — сразу action. */

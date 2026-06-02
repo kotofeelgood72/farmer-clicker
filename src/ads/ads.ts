@@ -239,15 +239,16 @@ export function scheduleStartupInterstitial(opts?: { onClose?: () => void }): vo
   attempt()
 }
 
-/** Полноэкранная реклама по клику. Если показ невозможен — сразу вызывает onClose. */
+/** Полноэкранная реклама по клику. */
 export function showInterstitial(
   _reason?: string,
-  opts?: { onClose?: () => void },
+  opts?: { onClose?: () => void; onBlocked?: () => void },
 ): boolean {
   const finish = () => opts?.onClose?.()
+  const blocked = () => (opts?.onBlocked ?? finish)()
 
   if (!canShowInterstitial(_reason)) {
-    finish()
+    blocked()
     return false
   }
 
