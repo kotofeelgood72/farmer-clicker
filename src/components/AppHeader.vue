@@ -2,8 +2,10 @@
 import { toRefs } from 'vue'
 import statEnergy from '@/assets/ui/energy.png'
 import statStone from '@/assets/ui/stone.png'
+import { usePremium } from '@/composables/usePremium'
 import { usePremiumResourceLabel } from '@/composables/usePremiumResourceLabel'
 import { useUserAvatar } from '@/composables/useUserAvatar'
+import IconCrown from '~icons/solar/crown-bold'
 
 const props = defineProps<{
   nickname: string
@@ -22,6 +24,7 @@ defineEmits<{
 }>()
 
 const { selectedAvatar } = useUserAvatar()
+const { isPremium } = usePremium()
 </script>
 
 <template>
@@ -37,7 +40,14 @@ const { selectedAvatar } = useUserAvatar()
         <span v-else>{{ nickname.charAt(0) }}</span>
       </div>
       <div class="user-info">
-        <div class="nickname">{{ nickname }}</div>
+        <div class="nickname-row">
+          <div class="nickname">{{ nickname }}</div>
+          <IconCrown
+            v-if="isPremium"
+            class="nickname-crown"
+            aria-label="Премиум"
+          />
+        </div>
       </div>
     </button>
 
@@ -106,11 +116,30 @@ const { selectedAvatar } = useUserAvatar()
   min-width: 0;
 }
 
+.nickname-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+}
+
 .nickname {
   font-size: 15px;
   font-weight: 700;
   color: var(--text);
   line-height: 1.2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nickname-crown {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  color: #ffb83d;
+  filter: drop-shadow(0 0 4px rgba(255, 184, 61, 0.45));
 }
 
 .stats {
