@@ -111,10 +111,10 @@ function onConfirmReset() {
 <template>
   <div class="profile">
     <div class="cover-bg"></div>
-    <EnterItem :order="0" solo>
-      <PageHeader title="Профиль" @back="onBack" />
-    </EnterItem>
     <div class="scroll page-enter">
+      <EnterItem :order="0" solo>
+        <PageHeader title="Профиль" @back="onBack" />
+      </EnterItem>
       <!-- cover + avatar -->
       <EnterItem :order="1" tag="section" class="cover">
         <button
@@ -276,8 +276,8 @@ function onConfirmReset() {
   border-bottom: none;
   position: relative;
   z-index: 1;
-  padding-top: 48px;
-  padding-bottom: 8px;
+  padding-top: var(--header-top-pad);
+  padding-bottom: 2px;
 }
 
 .scroll {
@@ -303,7 +303,7 @@ function onConfirmReset() {
 .cover {
   position: relative;
   z-index: 3;
-  height: 128px;
+  height: 84px;
 }
 
 .avatar-wrap {
@@ -377,7 +377,7 @@ function onConfirmReset() {
 .identity {
   position: relative;
   z-index: 1;
-  padding: 42px 16px 12px;
+  padding: 38px 16px 12px;
   text-align: center;
 }
 
@@ -497,6 +497,7 @@ function onConfirmReset() {
   font-size: 11px;
   color: var(--text-muted);
   font-weight: 500;
+  line-height: var(--lh-micro);
 }
 
 .stat-value {
@@ -544,6 +545,8 @@ function onConfirmReset() {
   color: var(--text);
   font-weight: 600;
   text-align: center;
+  line-height: var(--lh-micro);
+  text-wrap: balance;
 }
 
 .ach-cell.locked .ach-label { color: var(--text-dim); }

@@ -80,23 +80,25 @@ defineEmits<{
   display: flex;
   align-items: center;
   justify-content: space-around;
-  padding: 10px 8px 22px;
+  padding: calc(8px * var(--ui-density, 1)) 6px
+    calc(12px * var(--ui-density, 1) + env(safe-area-inset-bottom, 0px));
   background: var(--nav-bg);
   border-top: 1px solid var(--hairline);
+  flex-shrink: 0;
 }
 
 .nav-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: calc(4px * var(--ui-density, 1));
   flex: 1;
-  padding: 4px;
+  padding: 2px;
   background: none;
   border: none;
   outline: none;
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: calc(10px * var(--ui-scale, 1));
   font-family: inherit;
   font-weight: 500;
   cursor: pointer;
@@ -111,8 +113,8 @@ defineEmits<{
 }
 
 .nav-icon {
-  width: 24px;
-  height: 24px;
+  width: calc(22px * var(--ui-scale, 1));
+  height: calc(22px * var(--ui-scale, 1));
 }
 
 .nav-item.active {
@@ -125,8 +127,9 @@ defineEmits<{
 }
 
 .nav-label {
-  line-height: 1;
+  line-height: var(--lh-micro);
   font-weight: 600;
+  text-align: center;
 }
 
 .badge {
@@ -154,13 +157,13 @@ defineEmits<{
 }
 
 .swipe-fab {
-  width: 64px;
-  height: 64px;
+  width: calc(54px * var(--ui-scale, 1));
+  height: calc(54px * var(--ui-scale, 1));
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: -16px;
-  margin-bottom: -11px;
+  margin-top: calc(-12px * var(--ui-density, 1));
+  margin-bottom: calc(-8px * var(--ui-density, 1));
   transition: transform 0.15s ease;
   filter: drop-shadow(0 6px 14px rgba(91, 61, 240, 0.45));
 }

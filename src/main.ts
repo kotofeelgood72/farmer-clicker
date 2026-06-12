@@ -7,7 +7,13 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import { syncPremiumFromSdk } from '@/composables/usePremium'
+import { initViewportLayout, markPlatformHost, syncViewportLayout } from '@/utils/viewport'
 import { initYandex, getYsdk, gameplayPause, gameplayResume } from '@/yandex/sdk'
+
+initViewportLayout()
+if ((window as Window & { YaGames?: unknown }).YaGames) {
+  markPlatformHost()
+}
 
 window.addEventListener('contextmenu', (e) => e.preventDefault())
 window.addEventListener('selectstart', (e) => e.preventDefault())
@@ -22,7 +28,11 @@ document.addEventListener(
 )
 
 initYandex()
-  .then(() => syncPremiumFromSdk())
+  .then((sdk) => {
+    if (sdk) markPlatformHost()
+    else syncViewportLayout()
+    return syncPremiumFromSdk()
+  })
   .finally(() => {
     const app = createApp(App)
     app.use(createPinia())

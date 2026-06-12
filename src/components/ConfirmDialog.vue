@@ -138,13 +138,13 @@ function onBackdrop() {
   font-size: 20px;
   font-weight: 800;
   color: var(--text);
-  line-height: 1.25;
+  line-height: var(--lh-compact);
 }
 
 .confirm-message {
   margin: 0 0 20px;
   font-size: 14px;
-  line-height: 1.45;
+  line-height: var(--lh-body);
   color: var(--text-muted);
 }
 

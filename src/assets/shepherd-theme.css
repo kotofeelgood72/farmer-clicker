@@ -72,7 +72,7 @@
   font-size: 15px;
   font-weight: 800;
   color: var(--text);
-  line-height: 1.25;
+  line-height: var(--lh-compact);
 }
 
 .shepherd-cancel-icon {
@@ -101,7 +101,7 @@
 .shepherd-text {
   padding: 4px 10px 6px;
   font-size: 13px;
-  line-height: 1.4;
+  line-height: var(--lh-ui);
   color: var(--text-muted);
 }
 

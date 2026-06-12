@@ -30,7 +30,8 @@ defineEmits<{
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 8px;
-  padding: 56px 16px 10px;
+  padding: var(--header-top-pad) 16px calc(8px * var(--ui-density, 1));
+  flex-shrink: 0;
   background: var(--header-bg);
   border-bottom: 1px solid var(--hairline);
 }

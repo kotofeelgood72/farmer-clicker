@@ -177,7 +177,7 @@ function onDismiss() {
   font-size: 14px;
   font-weight: 600;
   color: var(--text);
-  line-height: 1.2;
+  line-height: var(--lh-compact);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -186,7 +186,7 @@ function onDismiss() {
 .ios-notif__body {
   font-size: 13px;
   color: var(--text-muted);
-  line-height: 1.25;
+  line-height: var(--lh-ui);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;

@@ -345,7 +345,7 @@ function closePhoto() {
   font-size: 22px;
   font-weight: 800;
   color: var(--text);
-  line-height: 1.1;
+  line-height: var(--lh-compact);
 }
 
 /* levels */
@@ -408,7 +408,7 @@ function closePhoto() {
   margin: 0;
   font-size: 12px;
   color: var(--text-muted);
-  line-height: 1.35;
+  line-height: var(--lh-micro);
   max-width: 220px;
 }
 
@@ -512,7 +512,7 @@ function closePhoto() {
   margin: 10px 0 0;
   font-size: 12px;
   color: var(--text-muted);
-  line-height: 1.35;
+  line-height: var(--lh-micro);
   text-align: center;
 }
 
@@ -552,7 +552,7 @@ function closePhoto() {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 56px 16px 24px;
+  padding: var(--header-top-pad) 16px calc(16px * var(--ui-density, 1));
 }
 
 .photo-modal__close {

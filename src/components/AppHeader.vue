@@ -69,8 +69,9 @@ const { isPremium } = usePremium()
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 56px 16px 10px;
-  gap: 12px;
+  padding: var(--header-top-pad) 16px calc(8px * var(--ui-density, 1));
+  gap: calc(10px * var(--ui-density, 1));
+  flex-shrink: 0;
   background: var(--header-bg);
   border-bottom: 1px solid var(--hairline);
 }
@@ -91,8 +92,8 @@ const { isPremium } = usePremium()
 }
 
 .avatar {
-  width: 44px;
-  height: 44px;
+  width: calc(40px * var(--ui-scale, 1));
+  height: calc(40px * var(--ui-scale, 1));
   border-radius: 50%;
   background: var(--gradient-brand);
   border: 1.5px solid var(--border);
@@ -127,7 +128,7 @@ const { isPremium } = usePremium()
   font-size: 15px;
   font-weight: 700;
   color: var(--text);
-  line-height: 1.2;
+  line-height: var(--lh-compact);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -171,8 +172,8 @@ const { isPremium } = usePremium()
 }
 
 .stat-img {
-  width: 30px;
-  height: 30px;
+  width: calc(26px * var(--ui-scale, 1));
+  height: calc(26px * var(--ui-scale, 1));
   object-fit: contain;
   -webkit-user-drag: none;
 }

@@ -337,7 +337,7 @@ function onPick(reply: { id: number; text: string; cost: number }) {
   padding: 10px 14px;
   border-radius: 18px;
   font-size: 14px;
-  line-height: 1.35;
+  line-height: var(--lh-ui);
   position: relative;
   word-wrap: break-word;
   white-space: pre-line;

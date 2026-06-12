@@ -143,7 +143,7 @@ function onClose() { emit('close') }
   margin: 0 0 32px;
   font-size: 18px;
   color: var(--text-muted);
-  line-height: 1.45;
+  line-height: var(--lh-body);
 }
 
 .match-actions {

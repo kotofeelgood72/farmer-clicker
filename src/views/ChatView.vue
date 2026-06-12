@@ -410,7 +410,8 @@ function onGoToDate() {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 56px 12px 10px;
+  padding: var(--header-top-pad) 12px calc(8px * var(--ui-density, 1));
+  flex-shrink: 0;
   background: var(--header-bg);
   border-bottom: 1px solid var(--hairline);
   z-index: 2;
@@ -529,7 +530,7 @@ function onGoToDate() {
   font-size: 16px;
   font-weight: 700;
   color: var(--text);
-  line-height: 1.1;
+  line-height: var(--lh-compact);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -598,7 +599,7 @@ function onGoToDate() {
   padding: 10px 14px;
   border-radius: 18px;
   font-size: 14px;
-  line-height: 1.35;
+  line-height: var(--lh-ui);
   position: relative;
   word-wrap: break-word;
   white-space: pre-line;
@@ -629,7 +630,7 @@ function onGoToDate() {
   margin: 0;
   padding: 4px 6px 8px;
   font-size: 14px;
-  line-height: 1.35;
+  line-height: var(--lh-ui);
 }
 
 .bubble-photo-frame {
@@ -740,7 +741,7 @@ function onGoToDate() {
 .completion-text {
   font-size: 13px;
   color: var(--text-muted);
-  line-height: 1.4;
+  line-height: var(--lh-body);
   margin-bottom: 20px;
 }
 

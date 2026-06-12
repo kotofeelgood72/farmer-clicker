@@ -36,6 +36,7 @@ defineEmits<{
   font-family: inherit;
   font-size: 13px;
   font-weight: 500;
+  line-height: var(--lh-ui);
   text-align: left;
   cursor: pointer;
   transition: transform 0.1s ease, background 0.15s ease, box-shadow 0.15s ease;

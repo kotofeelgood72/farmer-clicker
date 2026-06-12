@@ -334,6 +334,7 @@ function onTile(id: string) {
   font-size: 12px;
   color: var(--text-muted);
   font-weight: 500;
+  line-height: var(--lh-caption);
 }
 
 .section--continue .section-title {
@@ -396,7 +397,7 @@ function onTile(id: string) {
   font-size: 9px;
   color: var(--text-muted);
   font-weight: 500;
-  line-height: 1;
+  line-height: var(--lh-micro);
 }
 
 .reward.active .reward-day {
@@ -464,7 +465,7 @@ function onTile(id: string) {
   font-size: 10px;
   font-weight: 700;
   color: var(--text);
-  line-height: 1;
+  line-height: var(--lh-micro);
 }
 
 .reward.active .reward-amount {
@@ -543,5 +544,6 @@ function onTile(id: string) {
 .tile-subtitle {
   font-size: 11px;
   color: var(--text-muted);
+  line-height: var(--lh-micro);
 }
 </style>

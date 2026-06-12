@@ -357,7 +357,7 @@ function rarityLabel(r: AchievementRarity) {
 .ach-desc {
   font-size: 11.5px;
   color: var(--text-muted);
-  line-height: 1.35;
+  line-height: var(--lh-micro);
 }
 
 .ach-status {

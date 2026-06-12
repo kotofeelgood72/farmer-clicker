@@ -40,13 +40,13 @@ defineEmits<{
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 16px 24px;
+  gap: calc(8px * var(--ui-density, 1));
+  padding: calc(13px * var(--ui-density, 1)) calc(20px * var(--ui-density, 1));
   border: none;
   outline: none;
-  border-radius: 16px;
+  border-radius: calc(14px * var(--ui-density, 1));
   font-family: inherit;
-  font-size: 16px;
+  font-size: calc(15px * var(--ui-scale, 1));
   font-weight: 600;
   color: #fff;
   cursor: pointer;

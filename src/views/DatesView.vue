@@ -430,7 +430,7 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   font-size: 14px;
   font-weight: 700;
   color: #fff;
-  line-height: 1.2;
+  line-height: var(--lh-compact);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -534,7 +534,7 @@ function onNav(t: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   margin: 0;
   font-size: 12px;
   font-weight: 600;
-  line-height: 1.35;
+  line-height: var(--lh-micro);
   color: rgba(255, 255, 255, 0.95);
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
 }

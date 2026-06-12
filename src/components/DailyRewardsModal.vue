@@ -247,7 +247,7 @@ function onBackdrop() {
   font-size: 9px;
   font-weight: 600;
   color: var(--text-muted);
-  line-height: 1.1;
+  line-height: var(--lh-micro);
   text-align: center;
 }
 
@@ -267,6 +267,7 @@ function onBackdrop() {
   font-size: 11px;
   font-weight: 700;
   color: var(--text);
+  line-height: var(--lh-micro);
 }
 
 .daily-card__status {
@@ -388,7 +389,7 @@ function onBackdrop() {
 .daily-claim-x2__title {
   font-size: 16px;
   font-weight: 900;
-  line-height: 1.15;
+  line-height: var(--lh-compact);
   color: #fff;
   text-shadow:
     0 2px 0 #b35a00,

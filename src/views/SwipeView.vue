@@ -829,7 +829,7 @@ onUnmounted(() => {
 .energy-cta__label {
   font-size: 15px;
   font-weight: 800;
-  line-height: 1.25;
+  line-height: var(--lh-compact);
   text-align: center;
 }
 
@@ -985,7 +985,7 @@ onUnmounted(() => {
 
 .card-bio {
   font-size: 13px;
-  line-height: 1.4;
+  line-height: var(--lh-ui);
   color: rgba(255, 255, 255, 0.75);
   margin: 0 0 10px;
 }

@@ -131,7 +131,7 @@ defineEmits<{
   font-size: 13px;
   font-weight: 800;
   color: #fff;
-  line-height: 1.2;
+  line-height: var(--lh-compact);
 }
 
 .chat-card__status {
@@ -146,7 +146,7 @@ defineEmits<{
   font-size: 10px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.55);
-  line-height: 1.2;
+  line-height: var(--lh-micro);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

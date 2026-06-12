@@ -442,7 +442,7 @@ function onNav(tab: 'home' | 'chats' | 'swipe' | 'dates' | 'profile') {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.2px;
-  line-height: 1.4;
+  line-height: var(--lh-micro);
   white-space: nowrap;
 }
 

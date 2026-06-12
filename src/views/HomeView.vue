@@ -65,7 +65,8 @@ function onStart() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 0 24px 48px;
+  padding: 0 calc(20px * var(--ui-density, 1)) calc(20px * var(--ui-density, 1));
+  min-height: 0;
 }
 
 .content :deep(.enter-item) {
@@ -76,34 +77,39 @@ function onStart() {
 }
 
 .logo-row {
-  margin-bottom: 24px;
+  margin-bottom: calc(18px * var(--ui-density, 1));
 }
 
 .logo {
   display: block;
-  width: 96px;
-  height: 96px;
+  width: calc(88px * var(--ui-scale, 1));
+  height: calc(88px * var(--ui-scale, 1));
   object-fit: contain;
   filter: drop-shadow(0 8px 24px rgba(177, 75, 255, 0.22));
 }
 
 .title {
-  font-size: 26px;
+  font-size: calc(24px * var(--ui-scale, 1));
   font-weight: 800;
   letter-spacing: 0.02em;
-  line-height: 1.25;
-  margin: 0 0 12px;
+  line-height: var(--lh-compact);
+  margin: 0 0 calc(8px * var(--ui-density, 1));
   color: var(--text);
   text-align: center;
   max-width: 280px;
 }
 
 .tagline {
-  font-size: 15px;
+  font-size: calc(14px * var(--ui-scale, 1));
   font-weight: 400;
   color: var(--text-muted);
   text-align: center;
-  margin: 0 0 48px;
-  line-height: 1.45;
+  margin: 0 0 calc(28px * var(--ui-density, 1));
+  line-height: var(--lh-body);
+}
+
+.content :deep(.app-btn) {
+  max-width: min(280px, 100%);
+  margin-inline: auto;
 }
 </style>

@@ -485,7 +485,7 @@ function onCtaBuy() {
 .premium {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: calc(12px * var(--ui-density, 1));
 }
 
 .premium-card {
@@ -494,9 +494,10 @@ function onCtaBuy() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 28px 20px 22px;
+  padding: calc(16px * var(--ui-density, 1)) calc(16px * var(--ui-density, 1))
+    calc(14px * var(--ui-density, 1));
   border: none;
-  border-radius: 20px;
+  border-radius: calc(16px * var(--ui-density, 1));
   background: linear-gradient(155deg, #ffffff 0%, #faf0ff 38%, #fff3f8 100%);
   box-shadow:
     var(--shadow-lg),
@@ -513,7 +514,7 @@ function onCtaBuy() {
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: 20px;
+  border-radius: inherit;
   padding: 2px;
   background: linear-gradient(135deg, #b14bff 0%, #ff4d8e 55%, #ffb83d 100%);
   -webkit-mask:
@@ -548,12 +549,12 @@ function onCtaBuy() {
 
 .premium-card__icon-wrap {
   position: relative;
-  width: 96px;
-  height: 96px;
+  width: calc(68px * var(--ui-scale, 1));
+  height: calc(68px * var(--ui-scale, 1));
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 10px;
+  margin-bottom: calc(6px * var(--ui-density, 1));
 }
 
 .premium-card__glow {
@@ -593,15 +594,15 @@ function onCtaBuy() {
 }
 
 .premium-card__title {
-  margin: 0 0 14px;
+  margin: 0 0 calc(8px * var(--ui-density, 1));
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  font-size: 22px;
+  gap: calc(6px * var(--ui-density, 1));
+  font-size: calc(18px * var(--ui-scale, 1));
   font-weight: 800;
-  line-height: 1.15;
+  line-height: var(--lh-compact);
   text-align: center;
   letter-spacing: -0.02em;
 }
@@ -614,13 +615,13 @@ function onCtaBuy() {
 }
 
 .premium-card__title-tag {
-  padding: 4px 10px;
-  border-radius: 8px;
+  padding: calc(3px * var(--ui-density, 1)) calc(8px * var(--ui-density, 1));
+  border-radius: calc(6px * var(--ui-density, 1));
   background: var(--danger);
   color: #fff;
-  font-size: 18px;
+  font-size: calc(12px * var(--ui-scale, 1));
   font-weight: 800;
-  line-height: 1.1;
+  line-height: var(--lh-micro);
   box-shadow: 0 3px 10px rgba(255, 61, 90, 0.35);
 }
 
@@ -629,7 +630,7 @@ function onCtaBuy() {
   align-items: baseline;
   justify-content: center;
   gap: 3px;
-  padding: 12px 32px;
+  padding: calc(8px * var(--ui-density, 1)) calc(22px * var(--ui-density, 1));
   border-radius: 999px;
   background: var(--gradient-brand-violet);
   box-shadow: 0 6px 18px rgba(91, 61, 240, 0.38);
@@ -637,7 +638,7 @@ function onCtaBuy() {
 }
 
 .premium-card__price-value {
-  font-size: 28px;
+  font-size: calc(22px * var(--ui-scale, 1));
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.03em;
@@ -854,7 +855,7 @@ function onCtaBuy() {
   font-size: 10px;
   font-weight: 900;
   letter-spacing: 0.08em;
-  line-height: 1.1;
+  line-height: var(--lh-micro);
   white-space: nowrap;
   box-shadow:
     0 3px 0 rgba(180, 20, 80, 0.55),
@@ -945,7 +946,7 @@ function onCtaBuy() {
 .rewarded-card__title {
   font-size: 20px;
   font-weight: 900;
-  line-height: 1.1;
+  line-height: var(--lh-compact);
   letter-spacing: 0.01em;
   color: #fff;
   text-shadow:
@@ -1051,7 +1052,7 @@ function onCtaBuy() {
 }
 
 .premium-card__owned {
-  font-size: 16px;
+  font-size: calc(14px * var(--ui-scale, 1));
   font-weight: 800;
   letter-spacing: 0.02em;
 }
@@ -1122,7 +1123,7 @@ function onCtaBuy() {
   font-size: 18px;
   font-weight: 800;
   color: var(--text);
-  line-height: 1.15;
+  line-height: var(--lh-compact);
 }
 
 .card-amount--compact {

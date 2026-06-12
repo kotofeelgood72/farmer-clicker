@@ -93,8 +93,8 @@ body {
   margin: 0;
   padding: 0;
   width: 100%;
-  height: 100vh;
-  height: 100dvh;
+  height: var(--app-height, 100dvh);
+  min-height: 0;
   overflow: hidden;
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
@@ -103,8 +103,8 @@ body {
 }
 #app {
   width: 100%;
-  height: 100vh;
-  height: 100dvh;
+  height: var(--app-height, 100dvh);
+  min-height: 0;
   overflow: hidden;
 }
 * {
@@ -266,5 +266,47 @@ body {
 
 .route-slide-back-leave-to {
   transform: translateX(100%);
+}
+
+/* Мобильная / платформенная версия — без рамки телефона, на всю доступную высоту */
+html.is-edge-to-edge .stage {
+  padding: 0;
+  background-image: none !important;
+  background-color: var(--bg);
+}
+
+html.is-edge-to-edge .phone-scaler {
+  --scale: 1;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 0;
+  background: transparent;
+}
+
+html.is-edge-to-edge .phone {
+  width: 100%;
+  height: 100%;
+  transform: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+html.is-edge-to-edge .phone-frame {
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html.is-edge-to-edge .phone-screen {
+  border-radius: 0;
+  --phone-inner-radius: 0px;
+  --radius-inner: 0px;
+}
+
+html.is-edge-to-edge .dynamic-island {
+  display: none;
 }
 </style>

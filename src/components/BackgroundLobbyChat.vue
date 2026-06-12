@@ -240,7 +240,7 @@ const loopMessages = [...LOBBY_CHAT_MESSAGES, ...LOBBY_CHAT_MESSAGES]
   padding: 8px 11px;
   border-radius: 14px;
   font-size: 12px;
-  line-height: 1.35;
+  line-height: var(--lh-ui);
   color: var(--text);
   background: var(--surface-soft);
   border: 1px solid var(--border);
