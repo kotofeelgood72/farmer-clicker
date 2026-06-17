@@ -1,5 +1,6 @@
 @import './base.css';
 @import './enter.css';
+@import './desktop.css';
 
 /* Light theme tokens — warm pink-cream palette */
 :root {
@@ -85,7 +86,16 @@ html.is-edge-to-edge .phone-scaler,
 html.is-edge-to-edge .phone,
 html.is-edge-to-edge .phone-screen,
 html.is-edge-to-edge .route-view,
-html.is-edge-to-edge .route-page {
+html.is-edge-to-edge .route-page,
+html.is-desktop,
+html.is-desktop body,
+html.is-desktop #app,
+html.is-desktop .stage,
+html.is-desktop .phone-scaler,
+html.is-desktop .phone,
+html.is-desktop .phone-screen,
+html.is-desktop .route-view,
+html.is-desktop .route-page {
   overscroll-behavior: none;
 }
 
@@ -129,6 +139,10 @@ html.is-edge-to-edge {
 }
 
 html.is-edge-to-edge .phone-screen {
+  --phone-inner-radius: 0px;
+}
+
+html.is-desktop .phone-screen {
   --phone-inner-radius: 0px;
 }
 

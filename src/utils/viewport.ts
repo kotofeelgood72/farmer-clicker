@@ -8,10 +8,10 @@ function readViewportHeight(): number {
 export function syncViewportLayout(): void {
   const root = document.documentElement
   const mobile = MOBILE_MQ.matches
-  const platform = root.classList.contains('is-platform')
 
   root.classList.toggle('is-mobile', mobile)
-  root.classList.toggle('is-edge-to-edge', mobile || platform)
+  root.classList.toggle('is-edge-to-edge', mobile)
+  root.classList.toggle('is-desktop', !mobile)
 
   const vh = readViewportHeight()
   root.style.setProperty('--vh', `${vh * 0.01}px`)

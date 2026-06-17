@@ -7,7 +7,7 @@ import IosNotificationBanner from '@/components/IosNotificationBanner.vue'
 import { useAchievements } from '@/composables/useAchievements'
 import { useDailyRewards } from '@/composables/useDailyRewards'
 import { useNotificationWatcher } from '@/composables/useNotificationWatcher'
-import { routeComponentKey, useRouteTransition } from '@/composables/useRouteTransition'
+import { routeComponentKey } from '@/composables/useRouteTransition'
 import { signalLoadingReady } from '@/yandex/sdk'
 import stageBgUrl from '@/assets/ui/background.jpg'
 
@@ -15,7 +15,6 @@ const route = useRoute()
 const router = useRouter()
 const { syncAndShowModal } = useDailyRewards()
 const { refreshAchievements } = useAchievements()
-const { transitionName, setTransition } = useRouteTransition()
 
 useNotificationWatcher()
 
@@ -29,12 +28,6 @@ onMounted(() => {
       signalLoadingReady()
     })
   }, BOOT_LOAD_MS)
-})
-
-router.beforeEach((to, from) => {
-  if (from.matched.length) {
-    setTransition(from, to)
-  }
 })
 
 function onAppRoute(path: string) {
@@ -70,7 +63,7 @@ watch(
             </Transition>
             <div class="route-view" :class="{ 'route-view--booting': isBootLoading }">
               <RouterView v-slot="{ Component }">
-                <Transition :name="transitionName">
+                <Transition name="route-fade" mode="out-in">
                   <component :is="Component" :key="routeComponentKey(route)" class="route-page" />
                 </Transition>
               </RouterView>
@@ -174,11 +167,11 @@ body {
   background: linear-gradient(145deg, #2a2a2c 0%, #161618 50%, #2a2a2c 100%);
   padding: var(--bezel);
   box-sizing: border-box;
-  box-shadow:
+  /* box-shadow:
     0 0 0 1.5px #0a0a0a inset,
     0 0 0 3px #3a3a3c inset,
     0 30px 80px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(255, 255, 255, 0.04);
+    0 0 0 1px rgba(255, 255, 255, 0.04); */
 }
 
 .phone-screen {
@@ -188,7 +181,7 @@ body {
   --phone-inner-radius: var(--radius-inner);
   border-radius: var(--radius-inner);
   overflow: hidden;
-  background: var(--bg, #fff);
+  /* background: var(--bg, #fff); */
   isolation: isolate;
 }
 
@@ -240,35 +233,21 @@ body {
   overflow: hidden;
 }
 
-.route-slide-forward-enter-active,
-.route-slide-forward-leave-active,
-.route-slide-back-enter-active,
-.route-slide-back-leave-active {
+.route-fade-enter-active,
+.route-fade-leave-active {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  will-change: transform;
-  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: opacity 0.24s ease;
 }
 
-.route-slide-forward-enter-from {
-  transform: translateX(100%);
+.route-fade-enter-from,
+.route-fade-leave-to {
+  opacity: 0;
 }
 
-.route-slide-forward-leave-to {
-  transform: translateX(-28%);
-}
-
-.route-slide-back-enter-from {
-  transform: translateX(-28%);
-}
-
-.route-slide-back-leave-to {
-  transform: translateX(100%);
-}
-
-/* Мобильная / платформенная версия — без рамки телефона, на всю доступную высоту */
+/* Мобильная версия — без рамки телефона, на всю доступную высоту */
 html.is-edge-to-edge .stage {
   padding: 0;
   background-image: none !important;
@@ -307,6 +286,72 @@ html.is-edge-to-edge .phone-screen {
 }
 
 html.is-edge-to-edge .dynamic-island {
+  display: none;
+}
+
+/* Десктоп / широкий iframe — панель ~1000px на всю высоту, без формфактора телефона */
+html.is-desktop {
+  --app-shell-max-w: 1000px;
+  --header-top-pad: max(12px, env(safe-area-inset-top, 0px));
+  --lh-tight: 1.15;
+  --lh-compact: 1.3;
+  --lh-ui: 1.4;
+  --lh-body: 1.5;
+  --lh-micro: 1.42;
+  --lh-caption: 1.45;
+}
+
+@media (max-height: 740px) {
+  html.is-desktop {
+    --ui-scale: 0.96;
+    --ui-density: 0.94;
+  }
+}
+
+@media (max-height: 660px) {
+  html.is-desktop {
+    --ui-scale: 0.92;
+    --ui-density: 0.88;
+  }
+}
+
+html.is-desktop .stage {
+  padding: 0;
+}
+
+html.is-desktop .phone-scaler {
+  --scale: 1;
+  width: min(var(--app-shell-max-w), 100%);
+  height: 100%;
+  max-width: var(--app-shell-max-w);
+  max-height: 100%;
+  border-radius: 0;
+  background: transparent;
+  /* box-shadow: 0 12px 48px rgba(0, 0, 0, 0.28); */
+}
+
+html.is-desktop .phone {
+  width: 100%;
+  height: 100%;
+  transform: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+html.is-desktop .phone-frame {
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html.is-desktop .phone-screen {
+  border-radius: 0;
+  --phone-inner-radius: 0px;
+  --radius-inner: 0px;
+}
+
+html.is-desktop .dynamic-island {
   display: none;
 }
 </style>

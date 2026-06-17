@@ -1,32 +1,37 @@
 function isScrollableElement(el: HTMLElement): boolean {
   const { overflowY } = getComputedStyle(el)
-  if (overflowY !== 'auto' && overflowY !== 'scroll') return false
-  return el.scrollHeight > el.clientHeight
+  if (overflowY !== 'auto' && overflowY !== 'scroll' && overflowY !== 'overlay') {
+    return false
+  }
+  return el.scrollHeight > el.clientHeight + 1
+}
+
+function findScrollableAncestor(target: EventTarget | null): HTMLElement | null {
+  let node = target instanceof Element ? target : null
+
+  while (node && node !== document.documentElement) {
+    if (node instanceof HTMLElement && isScrollableElement(node)) {
+      return node
+    }
+    node = node.parentElement
+  }
+
+  return null
 }
 
 function canScrollInDirection(el: HTMLElement, deltaY: number): boolean {
   if (!isScrollableElement(el)) return false
 
   const { scrollTop, scrollHeight, clientHeight } = el
-  if (deltaY > 0) return scrollTop > 0
-  if (deltaY < 0) return scrollTop + clientHeight < scrollHeight - 1
-  return false
+  const maxScroll = Math.max(0, scrollHeight - clientHeight - 1)
+
+  // touch: палец вниз (deltaY > 0) → контент вниз; wheel: deltaY > 0 → вниз
+  if (deltaY > 0) return scrollTop < maxScroll
+  if (deltaY < 0) return scrollTop > 0
+  return true
 }
 
-function touchCanScroll(target: EventTarget | null, deltaY: number): boolean {
-  let node = target instanceof Element ? target : null
-
-  while (node && node !== document.documentElement) {
-    if (node instanceof HTMLElement && canScrollInDirection(node, deltaY)) {
-      return true
-    }
-    node = node.parentElement
-  }
-
-  return false
-}
-
-function wheelCanScroll(target: EventTarget | null, deltaY: number): boolean {
+function pointerCanScroll(target: EventTarget | null, deltaY: number): boolean {
   let node = target instanceof Element ? target : null
 
   while (node && node !== document.documentElement) {
@@ -42,11 +47,29 @@ function wheelCanScroll(target: EventTarget | null, deltaY: number): boolean {
 /** Блокирует прокрутку документа и pull-to-refresh, сохраняя скролл внутри панелей. */
 export function initDocumentScrollLock(): void {
   let lastTouchY = 0
+  let touchScrollParent: HTMLElement | null = null
 
   document.addEventListener(
     'touchstart',
     (event) => {
       lastTouchY = event.touches[0]?.clientY ?? 0
+      touchScrollParent = findScrollableAncestor(event.target)
+    },
+    { passive: true },
+  )
+
+  document.addEventListener(
+    'touchend',
+    () => {
+      touchScrollParent = null
+    },
+    { passive: true },
+  )
+
+  document.addEventListener(
+    'touchcancel',
+    () => {
+      touchScrollParent = null
     },
     { passive: true },
   )
@@ -68,7 +91,12 @@ export function initDocumentScrollLock(): void {
       const deltaY = touchY - lastTouchY
       lastTouchY = touchY
 
-      if (!touchCanScroll(event.target, deltaY)) {
+      const scrollParent = touchScrollParent ?? findScrollableAncestor(event.target)
+      if (scrollParent && canScrollInDirection(scrollParent, deltaY)) {
+        return
+      }
+
+      if (!pointerCanScroll(event.target, deltaY)) {
         event.preventDefault()
       }
     },
@@ -83,7 +111,7 @@ export function initDocumentScrollLock(): void {
         return
       }
 
-      if (!wheelCanScroll(event.target, event.deltaY)) {
+      if (!pointerCanScroll(event.target, event.deltaY)) {
         event.preventDefault()
       }
     },

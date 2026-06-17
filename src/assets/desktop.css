@@ -1,0 +1,20 @@
+/* Десктопная панель (~1000px): сетки и навигация внутри shell */
+html.is-desktop .login {
+  background-image: none !important;
+}
+
+html.is-desktop .bottom-nav {
+  max-width: var(--app-shell-max-w, 1000px);
+  margin-inline: auto;
+}
+
+html.is-desktop .shop .grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  html.is-desktop .shop .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

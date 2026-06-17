@@ -4,7 +4,6 @@ import type {
   RouteLocationRaw,
   Router,
 } from 'vue-router'
-import { scheduleRouteTransition } from '@/composables/useRouteTransition'
 
 export type NavigationBackState = {
   /** Полный путь экрана, с которого открыли текущий. */
@@ -87,8 +86,6 @@ export function navigateBack(
   fallback: string,
 ) {
   const target = currentHistoryState(router)?.back
-
-  scheduleRouteTransition('route-slide-back')
 
   if (typeof target === 'string' && target && target !== route.fullPath) {
     // pop, чтобы восстановить state предыдущего экрана (push заново его сбрасывает)

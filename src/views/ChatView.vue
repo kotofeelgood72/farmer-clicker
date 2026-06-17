@@ -547,7 +547,10 @@ function onGoToDate() {
 /* messages */
 .messages {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   padding: 14px 12px;
   display: flex;
   flex-direction: column;

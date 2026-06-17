@@ -48,8 +48,6 @@ function onStart() {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: var(--bg);
-  background-image: var(--main-bg);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -112,5 +110,27 @@ function onStart() {
 .content :deep(.app-btn) {
   max-width: min(280px, 100%);
   margin-inline: auto;
+}
+
+@media (min-width: 641px) {
+  .title {
+    max-width: 560px;
+    font-size: calc(32px * var(--ui-scale, 1));
+  }
+
+  .tagline {
+    max-width: 480px;
+    font-size: calc(16px * var(--ui-scale, 1));
+    margin-bottom: calc(36px * var(--ui-density, 1));
+  }
+
+  .logo {
+    width: calc(104px * var(--ui-scale, 1));
+    height: calc(104px * var(--ui-scale, 1));
+  }
+
+  .content :deep(.app-btn) {
+    max-width: min(360px, 100%);
+  }
 }
 </style>
