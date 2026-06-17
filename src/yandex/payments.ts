@@ -23,15 +23,22 @@ type YsdkProductRaw = YsdkProduct & {
   getPriceCurrencyImage?: (size: 'small' | 'medium' | 'svg') => string
 }
 
-function normalizeProduct(raw: YsdkProductRaw): YsdkProduct {
-  let currencyImageUrl: string | undefined
-  if (typeof raw.getPriceCurrencyImage === 'function') {
+function readCurrencyImageUrl(raw: YsdkProductRaw): string | undefined {
+  if (typeof raw.getPriceCurrencyImage !== 'function') return undefined
+
+  for (const size of ['small', 'medium', 'svg'] as const) {
     try {
-      currencyImageUrl = raw.getPriceCurrencyImage('small')
+      const url = raw.getPriceCurrencyImage(size)?.trim()
+      if (url) return url
     } catch {
       /* ignore */
     }
   }
+  return undefined
+}
+
+function normalizeProduct(raw: YsdkProductRaw): YsdkProduct {
+  const currencyImageUrl = readCurrencyImageUrl(raw)
   return {
     id: raw.id,
     title: raw.title,
@@ -42,6 +49,70 @@ function normalizeProduct(raw: YsdkProductRaw): YsdkProduct {
     priceCurrencyCode: raw.priceCurrencyCode,
     currencyImageUrl,
   }
+}
+
+export interface PortalCurrencyMeta {
+  imageUrl?: string
+  code?: string
+}
+
+export interface ShopCatalogData {
+  premium: YsdkProduct | null
+  productsById: Record<string, YsdkProduct>
+  portalCurrency: PortalCurrencyMeta
+}
+
+let catalogCache: ShopCatalogData | null = null
+let catalogPromise: Promise<ShopCatalogData> | null = null
+
+function buildProductsById(products: YsdkProduct[]): Record<string, YsdkProduct> {
+  const map: Record<string, YsdkProduct> = {}
+  for (const product of products) {
+    map[product.id] = product
+  }
+  return map
+}
+
+async function loadShopCatalogFromApi(): Promise<ShopCatalogData> {
+  const empty: ShopCatalogData = { premium: null, productsById: {}, portalCurrency: {} }
+  const payments = await getPaymentsApi()
+  if (!payments) return empty
+
+  try {
+    const catalog = await payments.getCatalog()
+    const normalized = catalog.map((item) => normalizeProduct(item as YsdkProductRaw))
+    const productsById = buildProductsById(normalized)
+    const premium = productsById[PREMIUM_PRODUCT_ID] ?? null
+    const source = premium ?? normalized[0]
+    const portalCurrency: PortalCurrencyMeta = source
+      ? {
+          imageUrl: source.currencyImageUrl,
+          code: source.priceCurrencyCode?.trim() || undefined,
+        }
+      : {}
+
+    return { premium, productsById, portalCurrency }
+  } catch (err) {
+    console.warn('[yandex payments] getCatalog failed', err)
+    return empty
+  }
+}
+
+/** Каталог IAP: премиум + метаданные портальной валюты (п. 3.8). */
+export function fetchShopCatalog(): Promise<ShopCatalogData> {
+  if (catalogCache) return Promise.resolve(catalogCache)
+  if (catalogPromise) return catalogPromise
+
+  catalogPromise = loadShopCatalogFromApi()
+    .then((data) => {
+      catalogCache = data
+      return data
+    })
+    .finally(() => {
+      catalogPromise = null
+    })
+
+  return catalogPromise
 }
 
 export interface YsdkPayments {
@@ -78,16 +149,8 @@ export function getPaymentsApi(): Promise<YsdkPayments | null> {
 }
 
 export async function fetchPremiumCatalogProduct(): Promise<YsdkProduct | null> {
-  const payments = await getPaymentsApi()
-  if (!payments) return null
-  try {
-    const catalog = await payments.getCatalog()
-    const product = catalog.find((p) => p.id === PREMIUM_PRODUCT_ID)
-    return product ? normalizeProduct(product as YsdkProductRaw) : null
-  } catch (err) {
-    console.warn('[yandex payments] getCatalog failed', err)
-    return null
-  }
+  const { premium } = await fetchShopCatalog()
+  return premium
 }
 
 /** Список покупок игрока (для постоянных — без consumePurchase). */
@@ -135,6 +198,28 @@ export async function purchasePremiumProduct(): Promise<boolean> {
     return purchase.productID === PREMIUM_PRODUCT_ID
   } catch (err) {
     console.info('[yandex payments] purchase cancelled or failed', err)
+    return false
+  }
+}
+
+/** Consumable-покупка: purchase + consumePurchase. */
+export async function purchaseConsumableProduct(productId: string): Promise<boolean> {
+  const payments = await getPaymentsApi()
+  if (!payments) {
+    if (import.meta.env.DEV) {
+      console.info('[yandex payments] purchase consumable (dev stub)', productId)
+      return true
+    }
+    return false
+  }
+
+  try {
+    const purchase = await payments.purchase({ id: productId })
+    if (purchase.productID !== productId) return false
+    await payments.consumePurchase(purchase.purchaseToken)
+    return true
+  } catch (err) {
+    console.info('[yandex payments] consumable purchase cancelled or failed', err)
     return false
   }
 }

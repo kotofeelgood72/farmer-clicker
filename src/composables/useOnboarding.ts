@@ -15,7 +15,7 @@ const TOUR_DEFAULTS = {
   classes: 'shepherd-step-heartline shepherd-step-dock',
   highlightClass: HIGHLIGHT_CLASS,
   arrow: false,
-  scrollTo: { behavior: 'smooth' as const, block: 'center' as const },
+  scrollTo: false,
   modalOverlayOpeningPadding: 10,
   modalOverlayOpeningRadius: 16,
   canClickTarget: false,
@@ -159,6 +159,7 @@ function buildNavTourSteps(): StepOptions[] {
 }
 
 function destroyMainTour() {
+  unlockTourScroll()
   if (!mainTour) return
   mainTour.hide()
   mainTour.steps.forEach((step) => step.destroy())
@@ -186,6 +187,25 @@ function getPhoneOverlayClipPath(): string | null {
 }
 
 let overlayClipCleanup: (() => void) | null = null
+let tourScrollUnlock: (() => void) | null = null
+
+function lockTourScroll() {
+  document.documentElement.classList.add('is-tour-active')
+  const scrollEl = getPhoneScreen()?.querySelector<HTMLElement>('.scroll')
+  const prevOverflow = scrollEl?.style.overflow ?? ''
+  scrollEl?.scrollTo({ top: 0 })
+  if (scrollEl) scrollEl.style.overflow = 'hidden'
+
+  tourScrollUnlock = () => {
+    document.documentElement.classList.remove('is-tour-active')
+    if (scrollEl) scrollEl.style.overflow = prevOverflow
+    tourScrollUnlock = null
+  }
+}
+
+function unlockTourScroll() {
+  tourScrollUnlock?.()
+}
 
 function clearPhoneOverlayClip() {
   overlayClipCleanup?.()
@@ -344,10 +364,12 @@ export function createMainOnboardingTour(): Tour {
   ])
 
   const finish = () => {
+    unlockTourScroll()
     markOnboardingComplete()
     destroyMainTour()
   }
 
+  tour.on('start', lockTourScroll)
   tour.on('complete', finish)
   tour.on('cancel', finish)
 

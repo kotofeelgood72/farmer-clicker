@@ -115,8 +115,20 @@ export function getLang(): string {
 // have resumed.
 
 let gameplayInitDone = false
+let loadingReadySent = false
 let gameplayPauseDepth = 0
 let gameplayLastSent: 'start' | 'stop' | null = null
+
+/** Game Ready: игра загружена, нет лоадеров, игрок может взаимодействовать (п. 1.19.2). */
+export function signalLoadingReady(): void {
+  if (loadingReadySent) return
+  loadingReadySent = true
+  try {
+    ysdk?.features?.LoadingAPI?.ready()
+  } catch (err) {
+    console.warn('[yandex sdk] LoadingAPI.ready() failed', err)
+  }
+}
 
 function syncGameplay() {
   if (!gameplayInitDone) return

@@ -73,6 +73,22 @@
   font-weight: normal;
 }
 
+html.is-edge-to-edge * {
+  overscroll-behavior: contain;
+}
+
+html.is-edge-to-edge,
+html.is-edge-to-edge body,
+html.is-edge-to-edge #app,
+html.is-edge-to-edge .stage,
+html.is-edge-to-edge .phone-scaler,
+html.is-edge-to-edge .phone,
+html.is-edge-to-edge .phone-screen,
+html.is-edge-to-edge .route-view,
+html.is-edge-to-edge .route-page {
+  overscroll-behavior: none;
+}
+
 html.is-edge-to-edge {
   --header-top-pad: max(10px, env(safe-area-inset-top, 0px));
   --lh-tight: 1.15;

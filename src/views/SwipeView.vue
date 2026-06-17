@@ -8,6 +8,7 @@ import IconCloseX from '@/components/icons/IconCloseX.vue'
 import IconVerified from '~icons/solar/verified-check-bold'
 import IconCrown from '~icons/solar/crown-bold'
 import IconFire from '~icons/solar/fire-bold'
+import IconAdVideo from '~icons/solar/clapperboard-play-bold'
 import IconAdPlay from '~icons/solar/play-circle-bold'
 import heartImg from '@/assets/ui/hearth.png'
 import energyImg from '@/assets/ui/energy.png'
@@ -175,10 +176,15 @@ function flyOff(direction: 'left' | 'right') {
   }
   trackSwipeEnergy(SWIPE_ENERGY_COST)
   animating.value = true
+
+  // Реклама сразу после действия игрока (Яндекс 4.4: ≤ 0,33 с), не после анимации.
+  afterSwipeCompleted(() => {
+    applySwipeOutcome(direction)
+  })
+
   const targetX = direction === 'right' ? 600 : -600
   const rot = direction === 'right' ? 25 : -25
 
-  // animate current card off-screen
   gsap.to(currentCard.value, {
     x: targetX,
     rotation: rot,
@@ -186,7 +192,6 @@ function flyOff(direction: 'left' | 'right') {
     ease: 'power2.in',
   })
 
-  // simultaneously promote the next card to the front
   if (nextCard.value) {
     gsap.fromTo(
       nextCard.value,
@@ -197,11 +202,8 @@ function flyOff(direction: 'left' | 'right') {
         opacity: 1,
         duration: 0.38,
         ease: 'power2.out',
-        onComplete: () => advance(direction),
       },
     )
-  } else {
-    gsap.delayedCall(0.38, () => advance(direction))
   }
 }
 
@@ -210,32 +212,30 @@ function resetCurrentCardTransform() {
   gsap.set(currentCard.value, { x: 0, y: 0, rotation: 0, scale: 1, opacity: 1 })
 }
 
-function advance(direction: 'left' | 'right') {
-  afterSwipeCompleted(() => {
-    const liked = current.value
-    recordProfileSeen()
-    dragX.value = 0
-    animating.value = false
-    // eslint-disable-next-line no-console
-    console.info('[swipe]', direction === 'right' ? 'like' : 'skip', liked?.name)
+function applySwipeOutcome(direction: 'left' | 'right') {
+  const liked = current.value
+  recordProfileSeen()
+  dragX.value = 0
+  animating.value = false
+  // eslint-disable-next-line no-console
+  console.info('[swipe]', direction === 'right' ? 'like' : 'skip', liked?.name)
 
-    if (direction === 'left' && liked) {
-      markSwipePassed(liked.id)
+  if (direction === 'left' && liked) {
+    markSwipePassed(liked.id)
+    return
+  }
+
+  if (direction === 'right' && liked) {
+    if (!canAccessGirl(liked.id)) {
+      resetCurrentCardTransform()
+      openPremiumShop()
       return
     }
-
-    if (direction === 'right' && liked) {
-      if (!canAccessGirl(liked.id)) {
-        resetCurrentCardTransform()
-        openPremiumShop()
-        return
-      }
-      trackMatch()
-      touchChat(liked.id, { preview: 'Это совпадение!' })
-      matchedCharacter.value = liked
-      matchVisible.value = true
-    }
-  })
+    trackMatch()
+    touchChat(liked.id, { preview: 'Это совпадение!' })
+    matchedCharacter.value = liked
+    matchVisible.value = true
+  }
 }
 
 function onUnlockProfileViaAd() {
@@ -502,7 +502,9 @@ onUnmounted(() => {
         }"
         :disabled="watchingAd"
         :aria-label="
-          showEnergyBoost ? `Энергия: ${energyBadgeLabel}` : 'Смотреть рекламу за энергию'
+          showEnergyBoost
+            ? `Энергия: ${energyBadgeLabel}`
+            : `Смотреть рекламу и получить +${REWARDED_ENERGY_AMOUNT} энергии`
         "
         @click="onEnergyBoost"
       >
@@ -512,7 +514,13 @@ onUnmounted(() => {
           alt=""
           class="action-img action-img--energy"
         />
-        <IconAdPlay v-else class="action-icon action-icon--ad" />
+        <span v-else class="action-rv" aria-hidden="true">
+          <img :src="energyImg" alt="" class="action-rv__energy" />
+          <span class="action-rv__balloon">
+            <IconAdVideo class="action-rv__balloon-icon" />
+          </span>
+          <span class="action-rv__amount">+{{ REWARDED_ENERGY_AMOUNT }}</span>
+        </span>
         <span
           v-if="showEnergyBoost"
           class="action-badge"
@@ -1031,6 +1039,7 @@ onUnmounted(() => {
   justify-content: center;
   gap: 18px;
   margin-bottom: 12px;
+  overflow: visible;
 }
 
 .action {
@@ -1098,16 +1107,82 @@ onUnmounted(() => {
   background: rgba(255, 184, 61, 0.28);
   border: 1px solid rgba(255, 184, 61, 0.55);
   box-shadow: 0 6px 18px rgba(255, 184, 61, 0.25);
+  overflow: visible;
 }
 
 .action--boost-loading {
   opacity: 0.75;
 }
 
-.action-icon--ad {
+.action-rv {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.action-rv__energy {
   width: 34px;
   height: 34px;
+  object-fit: contain;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 2px 6px rgba(255, 159, 26, 0.35));
+}
+
+.action-rv__balloon {
+  position: absolute;
+  top: -10px;
+  right: -12px;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 2px solid #ff9f1a;
+  border-radius: 11px;
+  box-shadow: 0 3px 10px rgba(255, 159, 26, 0.35);
+}
+
+.action-rv__balloon::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 7px;
+  width: 8px;
+  height: 8px;
+  background: #fff;
+  border-right: 2px solid #ff9f1a;
+  border-bottom: 2px solid #ff9f1a;
+  transform: rotate(45deg);
+  border-bottom-right-radius: 2px;
+}
+
+.action-rv__balloon-icon {
+  position: relative;
+  z-index: 1;
+  width: 16px;
+  height: 16px;
   color: #ff9f1a;
+}
+
+.action-rv__amount {
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: #1a1422;
+  border: 1.5px solid rgba(255, 184, 61, 0.7);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #ffb83d;
+  white-space: nowrap;
 }
 
 .action-img--energy {

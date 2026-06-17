@@ -7,9 +7,8 @@ import IosNotificationBanner from '@/components/IosNotificationBanner.vue'
 import { useAchievements } from '@/composables/useAchievements'
 import { useDailyRewards } from '@/composables/useDailyRewards'
 import { useNotificationWatcher } from '@/composables/useNotificationWatcher'
-import { scheduleStartupInterstitial } from '@/ads/ads'
 import { routeComponentKey, useRouteTransition } from '@/composables/useRouteTransition'
-import { gameplayInit } from '@/yandex/sdk'
+import { signalLoadingReady } from '@/yandex/sdk'
 import stageBgUrl from '@/assets/ui/background.jpg'
 
 const route = useRoute()
@@ -26,9 +25,8 @@ const isBootLoading = ref(true)
 onMounted(() => {
   window.setTimeout(() => {
     isBootLoading.value = false
-    // После спиннера: реклама поверх UI (премиум её не отключает), затем gameplay API.
-    scheduleStartupInterstitial({
-      onClose: () => gameplayInit(),
+    void nextTick(() => {
+      signalLoadingReady()
     })
   }, BOOT_LOAD_MS)
 })
@@ -95,11 +93,13 @@ body {
   width: 100%;
   height: var(--app-height, 100dvh);
   min-height: 0;
+  max-height: var(--app-height, 100dvh);
   overflow: hidden;
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   touch-action: manipulation;
   overscroll-behavior: none;
+  overscroll-behavior-y: none;
 }
 #app {
   width: 100%;

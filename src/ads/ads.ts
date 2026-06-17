@@ -238,8 +238,9 @@ export function showStartupInterstitial(opts?: { onClose?: () => void }): boolea
   return true
 }
 
-const STARTUP_AD_RETRY_MS = 300
-const STARTUP_AD_MAX_RETRIES = 40
+/** Яндекс 4.4: действие → реклама ≤ 0,33 с; короткие повторы, пока не готов adv. */
+const AD_SDK_RETRY_MS = 16
+const STARTUP_AD_MAX_RETRIES = 21
 
 let startupScheduleActive = false
 let pendingStartupClose: (() => void) | null = null
@@ -280,7 +281,7 @@ export function scheduleStartupInterstitial(opts?: { onClose?: () => void }): vo
 
     tries += 1
     if (tries < STARTUP_AD_MAX_RETRIES) {
-      window.setTimeout(attempt, STARTUP_AD_RETRY_MS)
+      window.setTimeout(attempt, AD_SDK_RETRY_MS)
       return
     }
     console.warn('[ads] startup interstitial: SDK not ready after retries')
@@ -335,10 +336,9 @@ export function showInterstitialIgnoringCooldown(
   return true
 }
 
-const FORCED_AD_RETRY_MS = 200
-const FORCED_AD_MAX_RETRIES = 20
+const FORCED_AD_MAX_RETRIES = 21
 
-/** Показ без кулдаунов с повторами, пока не готов ysdk.adv. */
+/** Показ без кулдаунов с повторами, пока не готов ysdk.adv (в пределах ~0,33 с). */
 export function runForcedInterstitialWithRetry(
   reason: string,
   action: () => void,
@@ -349,21 +349,22 @@ export function runForcedInterstitialWithRetry(
   }
 
   const opts = { onClose: action, onBlocked: action }
-  if (showInterstitialIgnoringCooldown(reason, opts)) return
-
   let tries = 0
+
   const attempt = () => {
     resetAdPlaybackState()
     if (showInterstitialIgnoringCooldown(reason, opts)) return
+
     tries += 1
     if (tries < FORCED_AD_MAX_RETRIES) {
-      window.setTimeout(attempt, FORCED_AD_RETRY_MS)
+      window.setTimeout(attempt, AD_SDK_RETRY_MS)
       return
     }
     console.warn('[ads] forced interstitial unavailable after retries', reason)
     action()
   }
-  window.setTimeout(attempt, FORCED_AD_RETRY_MS)
+
+  attempt()
 }
 
 /**

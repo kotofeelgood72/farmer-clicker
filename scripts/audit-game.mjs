@@ -99,10 +99,12 @@ for (const loc of PREMIUM_LOCATIONS) {
 
 // 6. Yandex SDK hooks
 const main = read('main.ts')
+const app = read('App.vue')
+const sdk = read('yandex/sdk.ts')
 const indexHtml = readFileSync(join(root, 'index.html'), 'utf8')
 if (indexHtml.includes('sdk.js')) pass('sdk.js в index.html')
 else fail('sdk.js в index.html')
-if (main.includes('LoadingAPI?.ready')) pass('LoadingAPI.ready()')
+if (sdk.includes('LoadingAPI?.ready') && app.includes('signalLoadingReady')) pass('LoadingAPI.ready()')
 else fail('LoadingAPI.ready()')
 if (main.includes('gameplayInit') && main.includes('gameplayPause'))
   pass('GameplayAPI pause/resume')
@@ -123,7 +125,6 @@ else fail('pending IAP')
 if (payments.includes('getCatalog')) pass('Каталог IAP')
 
 // 10. Adaptive phone-scaler
-const app = read('App.vue')
 if (app.includes('phone-scaler') && app.includes('100cqh')) pass('Адаптив phone-scaler')
 else fail('Адаптив')
 

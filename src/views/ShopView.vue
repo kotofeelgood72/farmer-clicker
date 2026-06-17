@@ -8,16 +8,17 @@ import iconStone from '@/assets/ui/stone.png'
 import iconStones from '@/assets/ui/cluster.png'
 import iconEnergy from '@/assets/ui/energy.png'
 import iconMedalion from '@/assets/ui/medalion.png'
-import iconYanCoin from '@/assets/ui/yan-coin.png'
-import { REWARDED_DIAMONDS_AMOUNT, REWARDED_ENERGY_AMOUNT } from '@/constants/game'
+import { PREMIUM_PRODUCT_ID, REWARDED_DIAMONDS_AMOUNT, REWARDED_ENERGY_AMOUNT, SHOP_IAP_PRODUCT_IDS } from '@/constants/game'
 import { useAchievements } from '@/composables/useAchievements'
 import { useDiamonds } from '@/composables/useDiamonds'
 import { useEnergy } from '@/composables/useEnergy'
+import { usePortalCurrency } from '@/composables/usePortalCurrency'
 import { usePremium } from '@/composables/usePremium'
 import { useAppNavigation } from '@/composables/useAppNavigation'
 import { useRewardedDiamonds } from '@/composables/useRewardedDiamonds'
 import { useRewardedEnergy } from '@/composables/useRewardedEnergy'
-import { fetchPremiumCatalogProduct, type YsdkProduct } from '@/yandex/payments'
+import { fetchShopCatalog, purchaseConsumableProduct, type YsdkProduct } from '@/yandex/payments'
+import { getIapPriceDisplay, type IapPriceDisplay } from '@/yandex/iapPrice'
 import IconCheck from '~icons/solar/check-circle-bold'
 import IconAdVideo from '~icons/solar/clapperboard-play-bold'
 import EnterItem from '@/components/EnterItem.vue'
@@ -26,6 +27,7 @@ type TabKey = 'diamonds' | 'energy' | 'premium'
 
 interface ShopItem {
   id: number
+  productId: string
   amount: number
   price: number
   icon: string
@@ -45,7 +47,9 @@ const { watchAdForEnergy, watching: watchingEnergyAd } = useRewardedEnergy()
 const { watchAdForDiamonds, watching: watchingDiamondsAd } = useRewardedDiamonds()
 const watchingAd = computed(() => watchingEnergyAd.value || watchingDiamondsAd.value)
 const { trackEnergyShopPurchase } = useAchievements()
+const { iconUrl: portalCurrencyIcon, currencyAlt, hasSdkCurrency, syncPortalCurrency } = usePortalCurrency()
 
+const catalogById = ref<Record<string, YsdkProduct>>({})
 const premiumCatalog = ref<YsdkProduct | null>(null)
 
 function parseShopTab(value: unknown): TabKey | null {
@@ -88,9 +92,11 @@ function ensurePremiumOnlyShop() {
 onMounted(() => {
   syncTabFromRoute()
   ensurePremiumOnlyShop()
-  void fetchPremiumCatalogProduct().then((p) => {
-    premiumCatalog.value = p
+  void fetchShopCatalog().then(({ premium, productsById }) => {
+    premiumCatalog.value = premium
+    catalogById.value = productsById
   })
+  void syncPortalCurrency()
 })
 watch(() => route.query.tab, () => {
   syncTabFromRoute()
@@ -101,56 +107,141 @@ watch(isPremium, () => {
   ensurePremiumOnlyShop()
 })
 
-function formatIapPrice(value: number | string): string {
+function formatDevPrice(value: number | string): string {
   const n = typeof value === 'string' ? Number(value) : value
   if (!Number.isFinite(n)) return String(value)
   return n.toLocaleString('ru-RU')
 }
 
+function getCatalogPrice(productId: string): IapPriceDisplay | null {
+  return getIapPriceDisplay(catalogById.value[productId])
+}
+
+/** Цена карточки: из SDK (п. 3.8) или dev-заглушка без SDK. */
+function getItemPriceDisplay(item: ShopItem): IapPriceDisplay | null {
+  const fromSdk = getCatalogPrice(item.productId)
+  if (fromSdk) return fromSdk
+
+  if (import.meta.env.DEV && !hasSdkCurrency.value) {
+    return {
+      text: formatDevPrice(item.price),
+      icon: portalCurrencyIcon.value || undefined,
+    }
+  }
+
+  return null
+}
+
 /** Цена премиума из каталога SDK (п. 3.8 — портальная валюта). */
-const premiumPriceDisplay = computed(() => {
-  const product = premiumCatalog.value
-  if (product?.price?.trim()) {
-    return {
-      text: product.price,
-      icon: product.currencyImageUrl ?? iconYanCoin,
-    }
+const premiumPriceDisplay = computed((): IapPriceDisplay | null => {
+  const fromSdk = getIapPriceDisplay(premiumCatalog.value)
+  if (fromSdk) return fromSdk
+
+  if (import.meta.env.DEV && !hasSdkCurrency.value) {
+    const item = allItems.find((i) => i.unit === 'premium-lifetime')
+    return item
+      ? { text: formatDevPrice(item.price), icon: portalCurrencyIcon.value || undefined }
+      : null
   }
-  if (product?.priceValue) {
-    const code = product.priceCurrencyCode?.trim()
-    const text = code
-      ? `${formatIapPrice(product.priceValue)} ${code}`
-      : formatIapPrice(product.priceValue)
-    return {
-      text,
-      icon: product.currencyImageUrl ?? iconYanCoin,
-    }
-  }
-  const item = allItems.find((i) => i.unit === 'premium-lifetime')
-  return {
-    text: item ? formatIapPrice(item.price) : '',
-    icon: iconYanCoin,
-  }
+
+  return null
 })
 
-/** 500 алмазов = 100 ян (0,2 ян/алмаз); на крупных пакетах — скидка от базовой цены. */
 const allItems: ShopItem[] = [
   // Алмазы
-  { id: 11, amount: 500, price: 100, icon: iconStone, tab: 'diamonds', unit: 'diamonds' },
-  { id: 12, amount: 250, price: 50, icon: iconStone, tab: 'diamonds', unit: 'diamonds' },
-  { id: 13, amount: 550, price: 99, icon: iconStones, discount: 10, tab: 'diamonds', unit: 'diamonds' },
-  { id: 14, amount: 2750, price: 385, icon: iconStones, discount: 30, tab: 'diamonds', unit: 'diamonds' },
-  { id: 15, amount: 6000, price: 840, icon: iconStones, discount: 30, tab: 'diamonds', unit: 'diamonds' },
-  { id: 16, amount: 12000, price: 1440, icon: iconStones, discount: 40, tab: 'diamonds', unit: 'diamonds' },
+  {
+    id: 11,
+    productId: SHOP_IAP_PRODUCT_IDS.diamonds_500,
+    amount: 500,
+    price: 100,
+    icon: iconStone,
+    tab: 'diamonds',
+    unit: 'diamonds',
+  },
+  {
+    id: 12,
+    productId: SHOP_IAP_PRODUCT_IDS.diamonds_250,
+    amount: 250,
+    price: 50,
+    icon: iconStone,
+    tab: 'diamonds',
+    unit: 'diamonds',
+  },
+  {
+    id: 13,
+    productId: SHOP_IAP_PRODUCT_IDS.diamonds_550,
+    amount: 550,
+    price: 99,
+    icon: iconStones,
+    discount: 10,
+    tab: 'diamonds',
+    unit: 'diamonds',
+  },
+  {
+    id: 14,
+    productId: SHOP_IAP_PRODUCT_IDS.diamonds_2750,
+    amount: 2750,
+    price: 385,
+    icon: iconStones,
+    discount: 30,
+    tab: 'diamonds',
+    unit: 'diamonds',
+  },
+  {
+    id: 15,
+    productId: SHOP_IAP_PRODUCT_IDS.diamonds_6000,
+    amount: 6000,
+    price: 840,
+    icon: iconStones,
+    discount: 30,
+    tab: 'diamonds',
+    unit: 'diamonds',
+  },
+  {
+    id: 16,
+    productId: SHOP_IAP_PRODUCT_IDS.diamonds_12000,
+    amount: 12000,
+    price: 1440,
+    icon: iconStones,
+    discount: 40,
+    tab: 'diamonds',
+    unit: 'diamonds',
+  },
 
   // Энергия
-  { id: 21, amount: 30, price: 49, icon: iconEnergy, tab: 'energy', unit: 'energy' },
-  { id: 22, amount: 80, price: 99, icon: iconEnergy, tab: 'energy', unit: 'energy' },
-  { id: 23, amount: 200, price: 199, icon: iconEnergy, discount: 15, tab: 'energy', unit: 'energy' },
+  {
+    id: 21,
+    productId: SHOP_IAP_PRODUCT_IDS.energy_30,
+    amount: 30,
+    price: 49,
+    icon: iconEnergy,
+    tab: 'energy',
+    unit: 'energy',
+  },
+  {
+    id: 22,
+    productId: SHOP_IAP_PRODUCT_IDS.energy_80,
+    amount: 80,
+    price: 99,
+    icon: iconEnergy,
+    tab: 'energy',
+    unit: 'energy',
+  },
+  {
+    id: 23,
+    productId: SHOP_IAP_PRODUCT_IDS.energy_200,
+    amount: 200,
+    price: 199,
+    icon: iconEnergy,
+    discount: 15,
+    tab: 'energy',
+    unit: 'energy',
+  },
 
   // Премиум
   {
     id: 31,
+    productId: PREMIUM_PRODUCT_ID,
     amount: 1,
     price: 100,
     icon: iconMedalion,
@@ -170,6 +261,13 @@ const premiumBenefits = [
 ] as const
 
 const items = computed(() => allItems.filter((i) => i.tab === activeTab.value))
+const itemPriceById = computed(() => {
+  const map: Record<number, IapPriceDisplay | null> = {}
+  for (const item of items.value) {
+    map[item.id] = getItemPriceDisplay(item)
+  }
+  return map
+})
 const premiumItem = computed(() => allItems.find((i) => i.tab === 'premium'))
 
 function formatAmount(item: ShopItem): string {
@@ -181,6 +279,15 @@ function onBack() {
   back('/main')
 }
 
+function grantShopItem(item: ShopItem) {
+  if (item.unit === 'energy') {
+    addEnergy(item.amount)
+    trackEnergyShopPurchase()
+  } else if (item.unit === 'diamonds') {
+    addDiamonds(item.amount)
+  }
+}
+
 async function onBuy(item: ShopItem) {
   if (item.unit === 'premium-lifetime') {
     if (isPremium.value) return
@@ -188,14 +295,9 @@ async function onBuy(item: ShopItem) {
     return
   }
 
-  // Пакеты энергии и алмазов — без Яндекс IAP (единственная покупка — премиум).
-  if (item.unit === 'energy') {
-    addEnergy(item.amount)
-    trackEnergyShopPurchase()
-  } else if (item.unit === 'diamonds') {
-    addDiamonds(item.amount)
-  }
-  console.info('[shop] dev grant', item)
+  const ok = await purchaseConsumableProduct(item.productId)
+  if (!ok) return
+  grantShopItem(item)
 }
 
 function onWatchAdForEnergy() {
@@ -272,11 +374,12 @@ function onCtaBuy() {
           </h3>
           <div class="premium-card__price">
             <span v-if="isPremium" class="premium-card__owned">Куплено</span>
-            <span v-else class="iap-price iap-price--on-dark">
+            <span v-else-if="premiumPriceDisplay" class="iap-price iap-price--on-dark">
               <span class="premium-card__price-value">{{ premiumPriceDisplay.text }}</span>
               <img
+                v-if="premiumPriceDisplay.icon"
                 :src="premiumPriceDisplay.icon"
-                alt=""
+                :alt="currencyAlt"
                 class="iap-price__coin"
               />
             </span>
@@ -372,9 +475,14 @@ function onCtaBuy() {
             <img :src="item.icon" :alt="`${item.amount}`" />
           </div>
           <div class="card-amount">{{ formatAmount(item) }}</div>
-          <div class="card-price iap-price">
-            <span class="iap-price__value">{{ formatIapPrice(item.price) }}</span>
-            <img :src="iconYanCoin" alt="" class="iap-price__coin" />
+          <div v-if="itemPriceById[item.id]" class="card-price iap-price">
+            <span class="iap-price__value">{{ itemPriceById[item.id]!.text }}</span>
+            <img
+              v-if="itemPriceById[item.id]!.icon"
+              :src="itemPriceById[item.id]!.icon"
+              :alt="currencyAlt"
+              class="iap-price__coin"
+            />
           </div>
         </button>
         </div>

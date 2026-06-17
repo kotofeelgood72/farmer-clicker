@@ -280,6 +280,7 @@ function onTile(id: string) {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 16px 16px 8px;
   display: flex;
   flex-direction: column;
